@@ -7,4 +7,5 @@ COPY roles /app/roles
 COPY main.yml /app
 COPY hosts /app
 COPY key /app
-CMD cd /app && ansible-playbook -i hosts main.yml | grep -e 'target.*ok=' >> /app/report
+#CMD cd /app && ansible-playbook -i hosts main.yml | grep -e 'target.*ok=' >> /app/report
+CMD cd /app && ansible-playbook -vvv -i hosts main.yml && ssh -vvv -i key -o StrictHostKeyChecking=no root@target ls -al
