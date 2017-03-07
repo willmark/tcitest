@@ -9,16 +9,10 @@ before_install:
 - docker build -t deployer deployer
 - docker build -t target target 
 
-- docker stop deployer
-- docker stop target
-- docker rm deployer
-- docker rm target
-
 - docker create --name target target
-- docker create --name deployer --link target deployer
-
 - docker start target
-- docker start deployer
+
+- docker run --name deployer --link target deployer
 - docker start deployer
 
 - docker cp deployer:/app/report .
