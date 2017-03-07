@@ -18,4 +18,4 @@ before_install:
 - docker cp deployer:/app/report .
 
 script:
-- ./idemptency_results
+- ./idempotency_results
