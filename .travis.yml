@@ -16,6 +16,8 @@ before_install:
 - docker start -a deployer
 
 - docker cp deployer:/app/report .
+- docker logs deployer
+- docker logs target 
 
 script:
 - cat report
