@@ -13,7 +13,7 @@ before_install:
 - docker start target
 
 - docker run --name deployer --link target deployer
-- docker start deployer
+- docker start -a deployer
 
 - docker cp deployer:/app/report .
 
