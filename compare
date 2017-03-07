@@ -1,25 +1,25 @@
 #!/bin/bash
 
 count=1
-ok=$(cat report | sed -n 's/.*ok=\([0-9]*\).*/\1/p')
 failed=$(cat report | sed -n 's/.*failed=\([0-9]*\).*/\1/p')
 changes=$(cat report | sed -n 's/.*changed=\([0-9]*\).*/\1/p')
 for change in $changes
 do
-   echo change $count is $change
-   count=$((($count + 1)))
-done
-
-count=1
-for success in $ok
-do
-   echo ok $count is $success
+   if [[ "$count" = 2 && "$change" -ne 0 ]]
+   then
+       echo 'failed idempotency test'
+       exit 1
+   fi
    count=$((($count + 1)))
 done
 
 count=1
 for failure in $failed
 do
-   echo failure $count is $failure
    count=$((($count + 1)))
+   if [ "$failure" -ne 0 ]
+   then
+       echo 'playbook failure, cannot test idempotency'
+       exit 1
+   fi
 done
