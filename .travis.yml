@@ -1,0 +1,27 @@
+sudo: required
+
+language: python
+
+services:
+  - docker
+
+before_install:
+- docker build -t deployer deployer
+- docker build -t target target 
+
+- docker stop deployer
+- docker stop target
+- docker rm deployer
+- docker rm target
+
+- docker create --name target target
+- docker create --name deployer --link target deployer
+
+- docker start target
+- docker start deployer
+- docker start deployer
+
+- docker cp deployer:/app/report .
+
+script:
+- cat report
