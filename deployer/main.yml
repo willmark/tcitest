@@ -1,6 +1,7 @@
 ---
 
-- name: all
-  hosts: all
+- name: test 
+  remote_user: root
+  hosts: target
   roles:
     - go
