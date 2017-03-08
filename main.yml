@@ -39,7 +39,7 @@
     - logstash-ansible
     - logstash-filebeat
     - minio
-    - monitoring
+#    - monitoring
     - provision-gslb
     - provision-lbs
     - pxe
