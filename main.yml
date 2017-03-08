@@ -43,7 +43,7 @@
 #    - provision-gslb
     - provision-lbs
 #    - pxe
-    - scale-gslb
+#    - scale-gslb
     - security
     - sensu-check
     - serverspec
