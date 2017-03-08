@@ -40,7 +40,7 @@
     - logstash-filebeat
     - minio
 #    - monitoring
-    - provision-gslb
+#    - provision-gslb
     - provision-lbs
     - pxe
     - scale-gslb
