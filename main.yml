@@ -20,7 +20,7 @@
     - cs-agent-deploy
     - default-debian
     - dnsmasq
-    - dsnet_config
+#    - dsnet_config
     - elasticsearch
     - filebeat
     - git
