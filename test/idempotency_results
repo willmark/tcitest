@@ -1,5 +1,16 @@
 #!/bin/bash
 
+docker build -t deployer test/deployer
+docker build -t target test/target
+
+docker create --name target target
+docker start target
+
+docker run --name deployer -v $(pwd)/roles:/app/roles -v $(pwd)/main.yml:/app/main.yml --link target deployer
+docker start -a deployer
+
+docker cp deployer:/app/report .
+
 count=1
 failed=$(cat report | sed -n 's/.*failed=\([0-9]*\).*/\1/p')
 changes=$(cat report | sed -n 's/.*changed=\([0-9]*\).*/\1/p')
