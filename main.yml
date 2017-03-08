@@ -42,7 +42,7 @@
 #    - monitoring
 #    - provision-gslb
     - provision-lbs
-    - pxe
+#    - pxe
     - scale-gslb
     - security
     - sensu-check
