@@ -6,16 +6,16 @@ services:
   - docker
 
 before_install:
-- docker build -t deployer deployer
-- docker build -t target target 
+- docker build -t deployer test/deployer
+- docker build -t target test/target 
 
 - docker create --name target target
 - docker start target
 
-- docker run --name deployer --link target deployer
+- docker run --name deployer -v $(pwd)/roles:/app/roles -v $(pwd)/main.yml:/app/main.yml --link target deployer
 - docker start -a deployer
 
-- docker cp deployer:/app/report .
+- docker cp deployer:/app/report . 
 
 script:
-- ./idempotency_results
+- ./test/idempotency_results
