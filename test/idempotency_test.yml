@@ -7,7 +7,7 @@
     - ansible-nagios-server
     - apt-repos
     - backup
-    - base-monitoring
+#    - base-monitoring
     - bring_up
     - builders
     - carbonapi
