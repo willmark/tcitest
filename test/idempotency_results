@@ -12,14 +12,15 @@ docker start -a deployer
 docker cp deployer:/app/report .
 
 count=1
-failed=$(cat report | sed -n 's/.*failed=\([0-9]*\).*/\1/p')
-changes=$(cat report | sed -n 's/.*changed=\([0-9]*\).*/\1/p')
+oks=$(cat report | sed -n 's/target.*ok=\([0-9]*\).*/\1/p')
+failed=$(cat report | sed -n 's/target.*failed=\([0-9]*\).*/\1/p')
+changes=$(cat report | sed -n 's/target.*changed=\([0-9]*\).*/\1/p')
 for change in $changes
 do
    if [[ "$count" = 2 && "$change" -ne 0 ]]
    then
        cat report
-       echo 'failed idempotency test'
+       echo "Failed idempotency test.  Subsequent change count $change exceeds zero"
        exit 1
    fi
    count=$((($count + 1)))
@@ -31,7 +32,21 @@ do
    count=$((($count + 1)))
    if [ "$failure" -ne 0 ]
    then
-       echo 'playbook failure, cannot test idempotency'
+       cat report
+       echo "Playbook failure. Failure count $failure exceeds zero"
+       exit 1
+   fi
+done
+
+count=1
+for ok in $oks
+do
+   count=$((($count + 1)))
+   prevok=$ok
+   if [[ "$count" -gt 1 &&  "$ok" -ne "$prevok" ]]
+   then
+       cat report
+       echo "Failed idempotency test.  Previous 'ok' count $prev does not match current ok count $ok"
        exit 1
    fi
 done
