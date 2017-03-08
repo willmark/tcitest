@@ -1,0 +1,17 @@
+---
+- name: Install Carbonapi
+  shell: |
+    export PATH=$PATH:/usr/local/go/bin
+    export GOPATH=$HOME/go
+    export PATH=$GOPATH/bin:$PATH
+    go get -v github.com/dgryski/carbonapi
+    go build -v github.com/dgryski/carbonapi
+
+- name: Install the init script for carbonapi
+  template: src=carbonapi.j2 dest=/etc/init.d/carbonapi mode=0755
+  notify: Restart carbonapi
+
+- meta: flush_handlers
+
+- name: Make sure carbonapi is running
+  service: name=carbonapi enabled=yes state=restarted

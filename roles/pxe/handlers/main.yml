@@ -1,0 +1,10 @@
+---
+- name: restart dnsmasq
+  service: name=dnsmasq state=restarted
+
+- name: reload ufw
+  ufw: state=enabled
+
+- name: restart microservice
+  service: name=pxe_microservice state=restarted
+  when: cleversafe.enabled|default("False")|bool

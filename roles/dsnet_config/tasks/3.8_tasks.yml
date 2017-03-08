@@ -1,0 +1,545 @@
+---
+### START SANITY CHECKS
+- name: verify dsnet.url is reachable and username/password authenticate
+  uri:
+    url: "{{ dsnet.url }}/listOrganizations.adm"
+    method: GET
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: url_test
+
+- name: verify each storage pool's width is equal to number of devices
+  fail: msg="Storage pool '{{ item.name }}' width is not equal to its number of devices"
+  when: item.width != item.devices|length
+  with_items: "{{ storage_pools }}"
+
+- name: verify each vault has a valid IDA
+  fail: msg="Vault '{{ item.name }}' has an invalid IDA.  The vault's IDA must meet the following conditions (1) Write Threshold <= Vault Width and (2) Write Threshold + IDA Threshold > Vault Width and (3) Write Threshold > IDA Threshold"
+  when: >
+    (item.vault_width is defined and item.threshold is defined and item.write_threshold is defined)
+    and
+    (item.vault_width < item.write_threshold or
+    item.write_threshold + item.threshold <= item.vault_width or
+    item.write_threshold <= item.threshold)
+  with_items: "{{ vaults }}"
+
+- name: verify each vault template has a valid IDA
+  fail: msg="Vault template '{{ item.name }}' has an invalid IDA.  The vault templates's IDA must meet the following conditions (1) Write Threshold <= Vault Width and (2) Write Threshold + IDA Threshold > Vault Width and (3) Write Threshold > IDA Threshold"
+  when: >
+    (item.vault_width is defined and item.threshold is defined and item.write_threshold is defined)
+    and
+    (item.vault_width < item.write_threshold or
+    item.write_threshold + item.threshold <= item.vault_width or
+    item.write_threshold <= item.threshold)
+  with_items: "{{ vault_templates }}"
+### END SANITY CHECKS
+
+### START DSNET MANAGER CONFIG TASKS
+- name: set NTP
+  uri:
+    url: "{{ dsnet.url }}/systemNtpConfiguration.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "systemNtpMode={{ ntp.mode }}{{ ntp|build_map_string('servers', '', '&ntpServers=') }}"
+
+- name: set authentication on devices to access key and password
+  uri:
+    url: "{{ dsnet.url }}/editAuthenticationMechanism.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "accessKeyAuthenticationEnabled={{ dsnet.access_key_authentication_enabled }}&passwordAuthenticationEnabled={{ dsnet.password_authentication_enabled }}"
+
+- name: configure device level APIs
+  uri:
+    url: "{{ dsnet.url }}/editSystemDeviceLevelAPIConfiguration.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "enabled={{ dsnet.device_level_api.enabled }}{{ dsnet.device_level_api|build_map_string('device_types', '', '&deviceTypes=') }}"
+
+- name: configure provisioning API
+  uri:
+    url: "{{ dsnet.url }}/provisioningAPIConfiguration.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "provisioningLevel={{ dsnet.provisioning_level }}"
+
+- name: setup alert forwarding to syslog
+  uri:
+    url: "{{ dsnet.url }}/editSystemAlertForwardConfiguration.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "enabled={{ dsnet.logging.enabled }}{{ dsnet.logging|build_map_string('device_types', '', '&deviceTypes=') }}&enabledSyslog=true&ipHostnameSyslog={{ dsnet.logging.ip_hostname_syslog }}&facility={{ dsnet.logging.facility }}&addHttpAccessLogSyslog={{ dsnet.logging.add_http_access_log_syslog }}&addAuditsToSyslog={{ dsnet.logging.add_audits_to_syslog }}"
+  when: dsnet.logging.enabled
+
+- name: configure TLS mode
+  uri:
+    url: "{{ dsnet.url }}/editSystemTlsConfiguration.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "tlsMode={{ dsnet.tls_mode }}"
+
+- name: add ssh keys onto cleversafe nodes
+  uri:
+    url: "{{ dsnet.url }}/systemSshKeyConfiguration.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "action=add&sshKey={{ item | web_safe_string }}"
+  with_items: "{{ dsnet.device_user.ssh_keys }}"
+  when: dsnet.device_user.ssh_keys
+### END DSNET MANAGER CONFIG TASKS
+
+### START SITE TASKS
+- name: get list of sites in system
+  uri:
+    url: "{{ dsnet.url }}/listSites.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: getSitesResponse
+
+- name: update siteIds variable with sites in system
+  set_fact:
+    siteIds: "{{ siteIds | combine({ item.name : item.id }) }}"
+  with_items: "{{ getSitesResponse.json.responseData.sites }}"
+
+- name: create sites
+  uri:
+    url: "{{ dsnet.url }}/createSite.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "name={{ item.name }}"
+  with_items: "{{ sites }}"
+  when: siteIds[item.name] is undefined
+  register: createSitesResponse
+
+- name: update site ids variable
+  set_fact:
+    siteIds: "{{ siteIds | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createSitesResponse.results }}"
+  when: item.json is defined
+### END SITE TASKS
+
+### START DEVICE TASKS
+- name: get list of devices in system
+  uri:
+    url: "{{ dsnet.url }}/listDevices.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: getDevicesResponse
+
+- name: update deviceIds variable with devices in system
+  set_fact:
+    deviceIds: "{{ deviceIds | combine({ item.hostname : item.id }) }}"
+  with_items: "{{ getDevicesResponse.json.responseData.devices }}"
+
+- name: verify number of pending devices in system is equal to the number of devices that should be pending
+  uri:
+    url: "{{ dsnet.url }}/listDeviceRegistrations.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: pendingDevices
+  tags: pending
+
+- debug:
+    msg: |
+      Devices waiting for registration: {{ pendingDevices.json.responseData.deviceRegistrations|length }}
+      Devices expecting (new_devices): {{ dsnet.pending_devices.count|int }}
+  failed_when: pendingDevices.json.responseData.deviceRegistrations|length > dsnet.pending_devices.count|int
+  tags: pending
+
+- name: verify number of pending devices in system is equal to the number of devices that should be pending
+  uri:
+    url: "{{ dsnet.url }}/listDeviceRegistrations.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: pendingDevices
+  until: pendingDevices.json.responseData.deviceRegistrations|length == dsnet.pending_devices.count|int
+  retries: "{{ dsnet.pending_devices.retries | int }}"
+  delay: "{{ dsnet.pending_devices.delay | int }}"
+  when: dsnet.pending_devices.count > 0
+
+- name: approve pending devices
+  uri:
+    url: "{{ dsnet.url }}/handleDeviceRegistration.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "id={{ item.id }}&approved=true"
+  with_items: "{{ pendingDevices.json.responseData.deviceRegistrations }}"
+  when: dsnet.pending_devices.count > 0
+  register: pendingDevicesResponse
+
+- name: update deviceIds variable with approved devices
+  set_fact:
+    deviceIds: "{{ deviceIds | combine({ item.item.hostname : item.json.responseData.id }) }}"
+  with_items: "{{ pendingDevicesResponse.results }}"
+  when: dsnet.pending_devices.count > 0
+
+- name: update deviceSiteIds variable
+  set_fact:
+    deviceSiteIds: "{{ deviceSiteIds | combine( (item | create_device_sites( siteIds )) ) }}"
+  with_items: "{{ sites }}"
+
+- name: update devices with site ids
+  uri:
+    url: "{{ dsnet.url }}/editDevice.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "id={{ deviceIds[item.key] }}&siteId={{ item.value }}"
+  with_dict: "{{ deviceSiteIds }}"
+  register: updateDeviceSiteIds
+
+- name: set password on devices for localadmin
+  uri:
+    url: "{{ dsnet.url }}/changeDevicePassword.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "oldPassword={{ dsnet.device_user.old_password }}&newPassword={{ dsnet.device_user.password }}&confirmPassword={{ dsnet.device_user.password }}{{ deviceIds|build_map_string('', '', '&deviceId=') }}"
+  when: dsnet.device_user.password
+### END DEVICE TASKS
+
+- name: pause so Cleversafe system can update
+  pause:
+    prompt: "Wait until all devices are registered.  press enter when devices registered."
+  when: dsnet.pending_devices.count|int > 0
+
+### START STORAGE POOL TASKS
+- name: get list of storage pools in system
+  uri:
+    url: "{{ dsnet.url }}/listStoragePools.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: getStoragePoolsResponse
+
+- name: update storagePoolIds variable with storage pools in system
+  set_fact:
+    storagePoolIds: "{{ storagePoolIds | combine({ item.name : item.id }) }}"
+  with_items: "{{ getStoragePoolsResponse.json.responseData.storagePools }}"
+
+- name: create storage pools
+  uri:
+    url: "{{ dsnet.url }}/createStoragePool.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "name={{ item.name }}&width={{ item.width }}&packedStorageEnabled={{ item.packed_storage_enabled | default('true') }}{{ item|build_map_string('devices', deviceIds, '&deviceIds=') }}"
+  with_items: "{{ storage_pools }}"
+  when: storagePoolIds[item.name] is undefined
+  register: createStoragePoolsResponse
+
+- name: update storagePoolIds variable with created storage pools
+  set_fact:
+    storagePoolIds: "{{ storagePoolIds | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createStoragePoolsResponse.results }}"
+  when: item.json is defined
+### END STORAGE POOL TASKS
+
+### START VAULT MANAGEMENT TASKS
+- name: get system settings
+  uri:
+    url: "{{ dsnet.url }}/viewSystem.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: getSettingsResponse
+
+- name: enable vault management
+  uri:
+    url: "{{ dsnet.url }}/configureManagementVault.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "configuration={{ dsnet.management_vault_configuration_type }}"
+  when: getSettingsResponse.json.responseData.settings.managementVaultConfigurationType != dsnet.management_vault_configuration_type
+### END VAULT MANAGEMENT TASKS
+
+### START VAULT WITHOUT A VAULT TEMPLATE TASKS
+- name: get vaults in system
+  uri:
+    url: "{{ dsnet.url }}/listVaults.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: getVaultsResponse
+
+- name: update vaultIds variable with vaults in the system
+  set_fact:
+    vaultIds: "{{ vaultIds | combine({ item.name : item.id }) }}"
+  with_items: "{{ getVaultsResponse.json.responseData.vaults }}"
+
+- name: create vaults without a vault template
+  uri:
+    url: "{{ dsnet.url }}/createVault.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "name={{ item.name }}&vaultWidth={{ item.vault_width }}&threshold={{ item.threshold }}&writeThreshold={{ item.write_threshold }}&segmentSize={{ item.segment_size | default(vault_default.segment_size) }}&segmentSizeUnit={{ item.segment_size_unit | default(vault_default.segment_size_unit) }}&nameIndexEnabled={{ item.name_index_enabled | default(vault_default.name_index_enabled) }}&privacyEnabled={{ item.privacy_enabled | default(vault_default.privacy_enabled) }}&versioning={{ item.versioning | default(vault_default.versioning) }}&storagePoolId={{ storagePoolIds[item.storage_pool] }}&softQuotaSize={{ item.soft_quota_size | default('') }}&softQuotaUnit={{ item.soft_quota_unit | default('') }}&hardQuotaSize={{ item.hard_quota_size | default('') }}&hardQuotaUnit={{ item.hard_quota_unit | default('') }}&alertLevel={{ item.alert_level | default('') }}"
+  with_items: "{{ vaults }}"
+  when: vaultIds[item.name] is undefined and item.template is undefined
+  register: createVaultsResponse
+
+- name: update vaultIds variable with vaults that were created without a vault template
+  set_fact:
+    vaultIds: "{{ vaultIds | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createVaultsResponse.results }}"
+  when: item.json is defined
+### END VAULT WITHOUT A VAULT TEMPLATE TASKS
+
+### START ACCESS POOL TASKS
+- name: get list of access pools in system
+  uri:
+    url: "{{ dsnet.url }}/listAccessPools.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: getAccessPoolsResponse
+
+- name: update accessPoolIds variable with access pools in system
+  set_fact:
+    accessPoolIds: "{{ accessPoolIds | combine({ item.name : item.id }) }}"
+  with_items: "{{ getAccessPoolsResponse.json.responseData.accessPools }}"
+
+- name: create access pools
+  uri:
+    url: "{{ dsnet.url }}/createAccessPool.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "name={{ item.name }}&protocolType={{ item.protocol_type | default('s3') }}&accessServicePorts[https]=443{{ item|build_map_string('devices', deviceIds, '&accessDeviceIds=') }}{{ item|build_map_string('vaults', vaultIds, '&vaultIds=') }}{{ item|build_map_string('mirrors', mirrorIds, '&mirrorIds=') }}"
+  with_items: "{{ access_pools }}"
+  when: accessPoolIds[item.name] is undefined
+  register: createAccessPoolsResponse
+
+- name: update accessPoolIds variable with created access pools
+  set_fact:
+    accessPoolIds: "{{ accessPoolIds | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createAccessPoolsResponse.results }}"
+  when: item.json is defined
+
+- name: deploy access pools to vaults
+  uri:
+    url: "{{ dsnet.url }}/editVaultAccess.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "id={{ vaultIds[item.name] }}{{ item|build_map_string('access_pools', accessPoolIds, '&accessPoolIds=') }}"
+  with_items: "{{ vaults }}"
+  when: item.access_pools is defined
+### END ACCESS POOL TASKS
+
+### START VAULT TEMPLATE TASKS
+- name: create vault templates
+  uri:
+    url: "{{ dsnet.url }}/createVaultTemplate.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "name={{ item.name }}&provisioningCode={{ item.provisioning_code | default(item.name) }}&vaultWidth={{ item.vault_width }}&threshold={{ item.threshold }}&writeThreshold={{ item.write_threshold }}&segmentSize={{ item.segment_size | default(vault_default.segment_size) }}&segmentSizeUnit={{ item.segment_size_unit | default(vault_default.segment_size_unit) }}&nameIndexEnabled={{ item.name_index_enabled | default(vault_default.name_index_enabled) }}&privacyEnabled={{ item.privacy_enabled | default(vault_default.privacy_enabled) }}&versioning={{ item.versioning | default(vault_default.versioning) }}&storagePoolId={{ storagePoolIds[item.storage_pool] }}{{ item|build_map_string('access_pools', accessPoolIds, '&accessPoolIds=') }}&softQuotaSize={{ item.soft_quota_size | default('') }}&softQuotaUnit={{ item.soft_quota_unit | default('') }}&hardQuotaSize={{ item.hard_quota_size | default('') }}&hardQuotaUnit={{ item.hard_quota_unit | default('') }}&alertLevel={{ item.alert_level | default('') }}"
+    status_code: [200, 422]
+  with_items: "{{ vault_templates }}"
+  when: vaultTemplateIds[item.name] is undefined
+  register: createVaultTemplatesResponse
+
+- name: update vaultTemplateIds variable with created vault templates
+  set_fact:
+    vaultTemplateIds: "{{ vaultTemplateIds | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createVaultTemplatesResponse.results }}"
+  when: item.json is defined and item.json.responseData.id is defined
+### END VAULT TEMPLATE TASKS
+
+### START VAULT WITH A VAULT TEMPLATE TASKS
+- name: create vaults with a vault template
+  uri:
+    url: "{{ dsnet.url }}/createVaultFromTemplate.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "id={{ vaultTemplateIds[item.template] }}&name={{ item.name }}"
+  with_items: "{{ vaults }}"
+  when: vaultIds[item.name] is undefined and item.template is defined
+  register: createVaultsResponse
+
+- name: update vaultIds variable with vaults that were created with a vault template
+  set_fact:
+    vaultIds: "{{ vaultIds | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createVaultsResponse.results }}"
+  when: item.json is defined
+### END VAULT WITH A VAULT TEMPLATE TASKS
+
+### START MIRROR TEMPLATE TASKS
+- name: create mirror templates
+  uri:
+    url: "{{ dsnet.url }}/createMirrorTemplate.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "name={{ item.name }}&provisioningCode={{ item.provisioning_code | default(item.name) }}&segmentSize={{ item.segment_size | default(vault_default.segment_size) }}&segmentSizeUnit={{ item.segment_size_unit | default(vault_default.segment_size_unit) }}&nameIndexEnabled={{ item.name_index_enabled | default(vault_default.name_index_enabled) }}&versioning={{ item.versioning | default(vault_default.versioning) }}{{ item|build_map_string('access_pools', accessPoolIds, '&accessPoolIds=') }}&softQuotaSize={{ item.soft_quota_size | default('') }}&softQuotaUnit={{ item.soft_quota_unit | default('') }}&hardQuotaSize={{ item.hard_quota_size | default('') }}&hardQuotaUnit={{ item.hard_quota_unit | default('') }}&vaultWidth1={{ item.vault_width1 }}&threshold1={{ item.threshold1 }}&writeThreshold1={{ item.write_threshold1 }}&storagePoolId1={{ storagePoolIds[item.storage_pool1] }}&privacyEnabled1={{ item.privacy_enabled1 | default(vault_default.privacy_enabled) }}&alertLevel1={{ item.alert_level1 | default('') }}&vaultWidth2={{ item.vault_width2 }}&threshold2={{ item.threshold2 }}&writeThreshold2={{ item.write_threshold2 }}&storagePoolId2={{ storagePoolIds[item.storage_pool2] }}&privacyEnabled2={{ item.privacy_enabled2 | default(vault_default.privacy_enabled) }}&alertLevel2={{ item.alert_level2 | default('') }}"
+    status_code: [200, 422]
+  with_items: "{{ mirror_templates }}"
+  when: mirrorTemplateIds[item.name] is undefined
+  register: createMirrorTemplatesResponse
+
+- name: update mirrorTemplateIds variable with created mirror templates
+  set_fact:
+    mirrorTemplateIds: "{{ mirrorTemplateIds | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createMirrorTemplatesResponse.results }}"
+  when: item.json is defined and item.status == 200
+### END MIRROR TEMPLATE TASKS
+
+### START MIRROR WITH A MIRROR TEMPLATE TASKS
+- name: create mirrors with a mirror template
+  uri:
+    url: "{{ dsnet.url }}/createMirrorFromTemplate.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "id={{ mirrorTemplateIds[item.template] }}&name={{ item.name }}"
+  with_items: "{{ mirrors }}"
+  when: mirrorIds[item.name] is undefined and item.template is defined and mirrorTemplateIds[item.template] is defined
+  ignore_errors: true
+  register: createMirrorsResponse
+
+- name: update mirrorIds variable with mirrors that were created with a mirror template
+  set_fact:
+    mirrorIds: "{{ mirrorIds | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createMirrorsResponse.results }}"
+  when: item.json is defined and item.status == 200
+### END MIRROR WITH A MIRROR TEMPLATE TASKS
+
+### START USER ACCOUNT TASKS
+- name: get list of user accounts in system
+  uri:
+    url: "{{ dsnet.url }}/listAccounts.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: getAccountsResponse
+  tags: user-accounts
+
+- name: update userAccounts variable with user accounts in system
+  set_fact:
+    userAccounts: "{{ userAccounts | combine({ item.name : item.id }) }}"
+  with_items: "{{ getAccountsResponse.json.responseData.accounts }}"
+  tags: user-accounts
+
+- name: create user accounts
+  uri:
+    url: "{{ dsnet.url }}/createAccount.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "name={{ item.name }}&email={{ item.email | default('') }}{{ item|build_user_password_string }}{{ item|build_map_string('roles', '', '&roles=') }}"
+  with_items: "{{ user_accounts }}"
+  when: userAccounts[item.name] is undefined
+  register: createUserAccountsResponse
+  tags: user-accounts
+
+- name: update userAccounts variable with created user accounts
+  set_fact:
+    userAccounts: "{{ userAccounts | combine({ item.item.name : item.json.responseData.id }) }}"
+  with_items: "{{ createUserAccountsResponse.results }}"
+  when: item.json is defined
+  tags: user-accounts
+
+- name: give vault access to user accounts
+  uri:
+    url: "{{ dsnet.url }}/editVaultAuthorization.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "id={{ vaultIds[item.vault_access.vault] }}&userPermissions[{{ userAccounts[item.name] }}]={{ item.vault_access.user_permissions }}"
+  with_items: "{{ user_accounts }}"
+  when: item.vault_access is defined
+### END USER ACCOUNT TASKS
+
+### START ACCESS KEY TASKS
+- name: create access keys
+  uri:
+    url: "{{ dsnet.url }}/editAccountAccessKey.adm"
+    method: POST
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "id={{ userAccounts[item.account] }}&action=add"
+  with_items: "{{ access_keys }}"
+  when: userAccounts[item.account] is defined
+  register: createAccessKeysResponse
+
+- name: update storageAccessKeys variable with created access keys
+  set_fact:
+    storageAccessKeys: "{{ storageAccessKeys | combine({ item.item.account : { \"access\": item.json.responseData.accessKeyId, \"secret\": item.json.responseData.secretAccessKey } }) }}"
+  with_items: "{{ createAccessKeysResponse.results }}"
+  when: item.json is defined
+
+- name: save access keys
+  template: src="{{ item.template_location }}" dest="{{ item.save_location }}" owner="{{ item.owner | default("root") }}" mode="{{ item.mode | default("0640") }}"
+  with_items: "{{ access_keys }}"
+  when: item.save_location is defined and item.template_location is defined
+### END ACCESS KEY TASKS

@@ -1,0 +1,22 @@
+---
+# - name: Download collectd version from softlayer repo
+#   get_url: url="http://{{ collectd_softlayer_mirror }}/collectd_{{ collectd_version }}_amd64.deb" dest="/opt/collectd_{{ collectd_version }}_amd.deb"
+
+- name: Install collectd package
+  apt:
+    # name: collectd={{ collectd_version }}  --> Should install specific version mentioned in vars/main.yml
+    name: collectd
+    state: present
+
+- name: Install collectd init script
+  template: src=collectd_server.properties.j2 dest="/etc/init.d/collectd" mode=0755
+  notify:
+    - Start collectd
+
+- name: flush handlers for collectd service
+  meta: flush_handlers
+
+- name: Configure collectd package
+  template: src=collectd_conf.j2 dest="{{ collectd_base_dir }}/collectd.conf" mode=0640
+  notify:
+    - Restart collectd

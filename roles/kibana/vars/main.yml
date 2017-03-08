@@ -1,0 +1,28 @@
+---
+kibana_ufw_rules:
+  - proto: tcp
+    rule: allow
+    to_port: "{{ kibana_port }}"
+    from_ip: "{{ kibana_ufw_from_ip | default(omit) }}"
+    interface: "{{ kibana_ufw_interface | default(omit) }}"
+
+kibana_apache_vhosts:
+  - name: kibana
+    port: "{{ kibana_apache_port | default(omit) }}"
+    server_name: "{{ kibana_apache_server_name | default(omit) }}"
+    server_admin: "{{ kibana_apache_admin | default(omit) }}"
+
+    ssl: "{{ kibana_apache_ssl | default(omit) }}"
+    ssl_cipher_suite: "{{ kibana_apache_ssl_cipher_suite | default(omit) }}"
+    ssl_protocol: "{{ kibana_apache_ssl_protocol | default(omit) }}"
+    ssl_certificate_file: "{{ kibana_apache_ssl_certificate_file | default(omit) }}"
+    ssl_certificate_chain_file: "{{ kibana_apache_ssl_certificate_chain_file | default(omit) }}"
+    ssl_use_stapling: "{{ kibana_apache_ssl_use_stapling | default(omit) }}"
+
+    ufw_to_port: "{{ kibana_apache_port | default(omit) }}"
+    ufw_from_ip: "{{ kibana_ufw_from_ip | default(omit) }}"
+    ufw_interface: "{{ kibana_ufw_interface | default(omit) }}"
+
+    vhost_extra: |
+      ProxyPass / http://127.0.0.1:{{ kibana_server_port }}/
+      ProxyPassReverse / http://127.0.0.1:{{ kibana_server_port }}/

@@ -1,0 +1,33 @@
+input {
+	beats {
+		port => "{{ ls_filebeat_port }}"
+    		{% if ls_input_codec is defined %}
+    		codec => "{{ ls_input_codec }}"
+	  	{% endif %}
+		{% if ls_input_listener_ip is defined %}
+		host => "{{ ls_input_listener_ip }}"
+		{% endif %}
+		{% if ls_input_ssl_enabled is defined %}
+		ssl => "{{ ls_input_ssl_enabled }}"
+		{% endif %}
+		{% if ls_input_ssl_enabled is defined %}
+		ssl => "{{ ls_input_ssl_enabled }}"
+		
+		ssl_certificate => "{{ ls_input_ssl_cert_filepath }}"
+
+		ssl_key => "{{ ls_input_ssl_key_filepath }}"
+		{% if ls_input_ssl_key_passphrase is defined %}
+		ssl_key_passphrase => "{{ ls_input_ssl_jey_passphrase }}"
+		{% endif %}
+		{% if ls_input_ssl_verify_mode is defined %}
+		ssl_verify_mode => "{{ ls_input_ssl_verify_mode }}"
+		{% endif %}
+		{% if ls_tls_min_version is defined %}		
+		tls_min_version => "{{ ls_tls_min_version }}"	
+		{% endif %}	
+		{% endif %}
+		{% if ls_input_add_field is defined %}
+		add_field => "{{ ls_input_add_field }}"
+		{% endif %}
+              }	
+	}

@@ -1,0 +1,3 @@
+---
+- name: Restart carbonapi
+  service: name=carbonapi enabled=yes state=restarted

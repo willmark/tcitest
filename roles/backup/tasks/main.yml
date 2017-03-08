@@ -1,0 +1,43 @@
+---
+- name: if remote backup, build parameters string
+  set_fact:
+    backup_params: "backupPassword={{ backup.backup_password | web_safe_string }}&confirmBackupPassword={{ backup.backup_password | web_safe_string }}&safekeepEnabled={{ backup.safekeep_enabled }}&backupType={{ backup.backup_type }}&ftpProtocol={{ backup.ftp_protocol }}&ftpHostname={{ backup.ftp_hostname }}&ftpUsername={{ backup.ftp_username }}&ftpPassword={{ backup.ftp_password }}&ftpPath={{ backup.ftp_path }}"
+  when: backup.backup_type == "remote"
+
+- name: if daily backup, configure daily backup
+  uri:
+    url: "{{ dsnet.url }}/systemBackupSettings.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "{{ backup_params }}&scheduled={{ backup.scheduled }}&scheduleUnit={{ backup.schedule_unit }}&scheduleDailyTime={{ backup.schedule_daily_time }}"
+  when: backup.scheduled and backup.schedule_unit == "daily"
+
+- name: if weekly backup, configure weekly backup
+  uri:
+    url: "{{ dsnet.url }}/systemBackupSettings.adm"
+    method: POST
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    body: "{{ backup_params }}&scheduled={{ backup.scheduled }}&scheduleUnit={{ backup.schedule_unit }}&scheduleWeeklyDay={{ backup.schedule_weekly_day }}&scheduleWeeklyTime={{ backup.schedule_weekly_time }}"
+  when: backup.scheduled and backup.schedule_unit == "weekly"
+
+- name: create cleversafe directory
+  file: path=/opt/cleversafe state=directory
+
+- name: create cleversafe bin directory
+  file: path=/opt/cleversafe/bin state=directory
+
+- name: create cleversafe config directory
+  file: path=/opt/cleversafe/etc state=directory
+
+- name: install backup cleaner script
+  copy: src=opt/cleversafe/bin/backup_cleaner.py dest=/opt/cleversafe/bin/backup_cleaner.py owner=root group=root mode=0710
+
+- name: install config file
+  template: src=opt/cleversafe/etc/config.ini dest=/opt/cleversafe/etc/config.ini
+
+- name: setup cron job for backup cleaning
+  cron: name="clean backups" minute="0" hour="0" job="/opt/cleversafe/bin/backup_cleaner.py" cron_file=clean_backups user=root

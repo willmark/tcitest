@@ -1,0 +1,71 @@
+---
+- name: "Install Required Packages For OpenJDK 8 Building"
+  become_user: root
+  package:
+    name: "{{ item }}"
+    state: installed
+  with_items: "{{ java_build_pkgs }}"
+
+- name: "Install Required Gems For OpenJDK 8 Building"
+  become_user: root
+  command: bash -lc "gem install {{ item }}"
+  args:
+    creates: /usr/local/bin/fpm
+  with_items: "{{ java_build_gems }}"
+
+- name: "Symlink OpenJDK 8 Build Directory"
+  become_user: root
+  file: src="{{ git_repo_dest }}/lfichtne-obuildfactory" dest="{{ git_repo_dest }}/obuildfactory" state=link
+
+- name: "Build OpenJDK 8"
+  become_user: root
+  command: ./obuildfactory/openjdk8/linux/standalone-job.sh
+  environment:
+    XUSE_FPM: "true"
+    XPACKAGE: "true"
+    XUSE_NEW_BUILD_SYSTEM: "true"
+    XBUILD: "true"
+    XUSE_UPDATE: "{{ java_update_version }}"
+  args:
+    chdir: "{{ git_repo_dest }}"
+    creates: "{{ git_repo_dest }}/OBF_DROP_DIR/openjdk8/openjdk8_1.8.0-u{{ java_update_version }}-*amd64.deb"
+
+- name: "Check OpenJDK 8 Deb Installed"
+  become_user: root
+  shell: "dpkg -l | grep '^ii  openjdk8'"
+  register: dpkg_openjdk8_installed
+  failed_when: dpkg_openjdk8_installed.rc == 2
+  changed_when: false
+  no_log: true
+
+- name: "Find Built OpenJDK 8 debs"
+  find:
+    paths: "{{ git_repo_dest }}/OBF_DROP_DIR/openjdk8"
+    patterns: "openjdk8_1.8.0-u{{ java_update_version }}-*amd64.deb"
+  register: openjdk8_debs_found
+  changed_when: false
+  no_log: true
+
+- name: "Install Debian OpenJDK 8 Package"
+  become_user: root
+  command: "dpkg -i {{ openjdk8_debs_found.files.0.path }}"
+  when: dpkg_openjdk8_installed.rc != 0
+
+- name: "Update Alternatives For Java"
+  become_user: root
+  alternatives:
+    name: java
+    path: /opt/obuildfactory/jdk-1.8.0-openjdk-x86_64/bin/java
+
+- name: "Update Alternatives For JavaC"
+  become_user: root
+  alternatives:
+    name: javac
+    path: /opt/obuildfactory/jdk-1.8.0-openjdk-x86_64/bin/javac
+
+- command: java -version
+  register: java_version_out
+  changed_when: false
+
+- debug:
+    var: java_version_out

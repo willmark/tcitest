@@ -1,0 +1,26 @@
+---
+dsnet:
+  validate_certs: "no"
+
+backup:
+  safekeep_enabled: true
+  backup_password: "pass"
+  backup_type: "none"
+
+  ftp_hostname: ~
+  ftp_username: ~
+  ftp_password: ~
+  ftp_path: ~
+  datacenter: ~
+
+  ftp_protocol: "sftp"
+
+  scheduled: false
+  schedule_unit: ~
+
+  schedule_daily_time: ~
+
+  schedule_weekly_day: ~
+  schedule_weekly_time: ~
+
+  backup_cutoff: 90

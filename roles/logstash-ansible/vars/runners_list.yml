@@ -1,0 +1,52 @@
+---
+# vars file for pyrrrat.logstash
+
+runnerslist:
+    oss-cleversafe-access:
+        configs:
+            0: input
+            1: filter
+            2: output
+        instances: 2
+
+    oss-cleversafe-gc:
+        configs:
+            0: input
+            1: filter
+            2: output
+        instances: 2
+
+    oss-cleversafe-intent-cleanup:
+        configs:
+            0: input
+            1: filter
+            2: output
+        instances: 1
+
+    oss-cleversafe-messages:
+        configs:
+            0: input
+            1: filter
+            2: output
+        instances: 2
+
+    oss-cleversafe-monitor-logstash-agent:
+        configs:
+            0: input
+            1: filter
+            2: output
+        instances: 1
+
+    oss-cleversafe-report:
+        configs:
+            0: input
+            1: filter
+            2: output
+        instances: 1
+
+    oss-elasticsearch-cleversafe:
+        configs:
+            0: input
+            1: filter
+            2: output
+        instances: 3

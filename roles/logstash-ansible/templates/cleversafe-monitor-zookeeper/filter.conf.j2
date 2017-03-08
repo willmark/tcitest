@@ -1,0 +1,14 @@
+filter {
+  if [message] =~ ".*imok.*" {
+    mutate {
+        add_field => {"status" => "OK" }
+     }
+  } else {
+      mutate {
+        add_field => {"status" => "CRIT" }
+     }
+  }
+  mutate {
+     add_field => {"orig_timestamp" => "%{@timestamp}" }
+  }
+}

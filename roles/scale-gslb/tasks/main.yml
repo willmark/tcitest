@@ -1,0 +1,20 @@
+---
+- gslb_scale:
+    gslb_master_mgmt_ip="{{ lb_inputs.gslb_master_mgmt_ip }}"
+    gslb_master_user="{{ lb_inputs.gslb_master_user }}"
+    gslb_master_password="{{ lb_inputs.gslb_master_password }}"
+    gslb_vservers="{{ lb_inputs.gslb_vservers }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: test domain lookups
+  command: host {{ item.domainnames[0] }}
+  with_items: "{{ lb_inputs.gslb_vservers }}"
+  delegate_to: localhost
+  register: dns_results
+  no_log: true
+  run_once: true
+
+- name: result of domain lookups
+  debug: msg="{{ dns_results.results|map(attribute='stdout')|list }}"
+  run_once: true

@@ -1,0 +1,7 @@
+filter {
+  fingerprint {
+    source => ["message"]
+    target => "fingerprint"
+    method => "MURMUR3"
+  }
+}

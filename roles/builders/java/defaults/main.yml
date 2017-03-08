@@ -1,0 +1,33 @@
+---
+git_repo_list:
+  -
+    org: lfichtne
+    repo: obuildfactory
+java_build_pkgs:
+  - mercurial
+  - zip
+  - bzip2
+  - unzip
+  - tar
+  - curl
+  - ccache
+  - make
+  - gcc
+  - g++
+  - ca-certificates
+  - ca-certificates-java
+  - libxext-dev
+  - libxrender-dev
+  - libxtst-dev
+  - libasound2-dev
+  - libcups2-dev
+  - libfreetype6-dev
+  - build-essential
+  - ruby
+  - ruby-dev
+  - rubygems
+  - pkg-config
+  - openjdk-7-jdk
+java_build_gems:
+  - fpm
+java_update_version: 121

@@ -1,0 +1,43 @@
+#Public endpoints
+=================
+CN:
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+*.{{ lb_inputs.endpoint_suffix }}
+{% else %}
+{% for prefix in lb_inputs.endpoint_prefixes.global %}
+{{ prefix }}.{{ lb_inputs.endpoint_suffix }}
+{% endfor %}
+{% endif %}
+
+SANs:
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+{% set prefixes = lb_inputs.endpoint_prefixes.global + lb_inputs.endpoint_prefixes.local %}
+{% else %}
+{% set prefixes = lb_inputs.endpoint_prefixes.global %}
+{% endif %}
+{% for prefix in prefixes %}
+*.{{ prefix }}.{{ lb_inputs.endpoint_suffix }}
+{% endfor %}
+
+{% if netscaler.int_vip_ip is defined %}
+#Private endpoints - for select only
+====================================
+CN:
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+*.int.{{ lb_inputs.endpoint_suffix }}
+{% else %}
+{% for prefix in lb_inputs.endpoint_prefixes.global %}
+{{ prefix }}.int.{{ lb_inputs.endpoint_suffix }}
+{% endfor %}
+{% endif %}
+
+SANs:
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+{% set prefixes = lb_inputs.endpoint_prefixes.global + lb_inputs.endpoint_prefixes.local %}
+{% else %}
+{% set prefixes = lb_inputs.endpoint_prefixes.global %}
+{% endif %}
+{% for prefix in prefixes %}
+*.{{ prefix }}.int.{{ lb_inputs.endpoint_suffix }}
+{% endfor %}
+{% endif %}

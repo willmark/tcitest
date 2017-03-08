@@ -1,0 +1,9 @@
+{
+  {% for server in pxe.servers -%}
+  {% if not loop.last -%}
+  "/{{ server.os }}/{{ server.name }}/answers.cfg": "01-{{ server.mac | replace(":","-") | lower }}",
+  {% else -%}
+  "/{{ server.os }}/{{ server.name }}/answers.cfg": "01-{{ server.mac | replace(":","-") | lower }}"
+  {% endif -%}
+  {% endfor -%}
+}

@@ -1,0 +1,3 @@
+# {{ ansible_managed }}
+
+{{ logging.forward.tls.ca_cert }}

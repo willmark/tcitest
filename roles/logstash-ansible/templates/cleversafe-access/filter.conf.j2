@@ -1,0 +1,51 @@
+filter {
+    mutate {
+      gsub => [
+        "message", "\"","",
+        "message", "\{", "",
+        "message", "\}", "",
+        "message", ", ", " ",
+        "message", "stat:", "",
+        "message", "principals:", ""
+      ]
+    }
+    kv {
+      field_split => ","
+      value_split => ":"
+    }
+    mutate {
+      convert => {"request_latency" => "float"}
+      convert => {"response_length" => "float"}
+      convert => {"object_length" => "float"}
+      convert => {"request_length" => "float"}
+      convert => {"timestamp_start" => "float"}
+      convert => {"timestamp_finish" => "float"}
+      convert => {"client_wait" => "float"}
+      convert => {"turn_around_time" => "float"}
+      convert => {"total_transfer" => "float"}
+      convert => {"pre_transfer" => "float"}
+      convert => {"post_transfer" => "float"}
+      convert => {"commit" => "float"}
+      convert => {"digest" => "float"}
+      convert => {"container_bytes_used" => "float"}
+      convert => {"container_object_count" => "float"}
+      convert => {"partial_storage_account_bytes_used" => "float"}
+      convert => {"partial_storage_account_object_count" => "float"}
+      convert => {"storage_wait" => "float"}
+      convert => {"first_byte_latency" => "float"}
+      convert => {"object_count" => "float"}
+      convert => {"format" => "float"}
+
+      rename => { "status" => "access_status" }
+    }
+    mutate {
+      update => {
+        "_type" => "ca_access"
+        "type" => "ca_access"
+      }
+    }
+    date {
+      match => [ "time_finish", "dd/MMM/yyyy:HH:mm:ss Z" ]
+      target => "orig_timestamp"
+    }
+}

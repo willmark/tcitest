@@ -1,0 +1,75 @@
+---
+
+- name: Check if apt-transport-https is installed
+  shell: dpkg-query -W 'apt-transport-https'
+  ignore_errors: 'true'
+  register: is_apthttps
+
+- name: Install apt-transport-https
+  apt:
+    name: apt-transport-https
+    state: present
+  when: is_apthttps | failed
+
+- name: add apt-key
+  apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    state: present
+
+- name: Add Logstash repository.
+  apt_repository:
+    repo: 'deb https://artifacts.elastic.co/packages/5.x/apt stable main'
+    state: present
+    update_cache: true
+
+- name: Add Jessie Backports repository
+  apt_repository:
+    repo: 'deb http://httpredir.debian.org/debian jessie-backports main'
+    state: present
+    update_cache: true
+
+- name: install JRE
+  apt:
+    name: '{{ logstash_jre_package }}={{ logstash_jre_version }}'
+    state: present
+    default_release: "{{ logstash_jre_release }}"
+
+- name: Install Logstash
+  apt:
+    name: logstash={{ logstash_ver }}
+    state: present
+  register: pkginstall
+
+- debug:
+    var: pkginstall.stdout_lines
+
+- debug:
+    var: pkginstall.stderr
+
+- name: install configs
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/logstash/conf.d/{{ item }}"
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart logstash
+  with_items:
+    - "{{ ls_input_template }}"
+    - "{{ ls_filter_template }}"
+    - "{{ ls_output_template }}"
+
+- meta: flush_handlers
+
+- name: start logstash
+  service:
+    name: logstash
+    state: started
+    enabled: true
+  register: startla
+
+- debug:
+    var: startla.stdout_lines
+
+- debug:
+    var: startla.stderr

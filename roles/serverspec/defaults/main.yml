@@ -1,0 +1,16 @@
+---
+serverspec:
+  interval: 600
+  enabled: true
+  version: 2.29.1
+  version_locked_gems:
+    - name: net-ssh
+      version: 2.9.4
+    - name: specinfra
+      version: 2.50.4
+    - name: rspec-support
+      version: 3.4.1
+    - name: rspec-core
+      version: 3.4.2
+    - name: rspec
+      version: 3.4.0

@@ -1,0 +1,40 @@
+---
+- name: install ruby gems
+  gem: name={{ item }} user_install=no
+  with_items:
+    - rake
+
+- name: rename old rake installation
+  command: dpkg-divert --add --rename --divert /usr/bin/{{ item }}.divert /usr/bin/{{ item }}
+  with_items:
+    - rake
+
+- name: force rake2.0
+  command: update-alternatives --install /usr/bin/{{ item }} {{ item }} /usr/bin/{{ item }}2.0 1
+  with_items:
+    - rake
+
+- name: install version-locked gems
+  gem: name="{{ item.name }}" version="{{ item.version }}"
+       user_install=no
+  with_items: "{{ serverspec.version_locked_gems }}"
+
+- name: install serverspec gem
+  gem: name=serverspec version="{{ serverspec.version }}"
+       user_install=no
+
+- name: install serverspec-extended-types gem
+  gem: name=serverspec-extended-types version=0.0.3
+       user_install=no
+
+- name: serverspec fixtures
+  file: dest=/etc/serverspec/spec/fixtures state=directory
+        owner=root mode=0755
+
+- name: serverspec rakefile
+  template: src=etc/serverspec/Rakefile
+            dest=/etc/serverspec/Rakefile mode=0755
+
+- name: serverspec helper
+  template: src=etc/serverspec/spec/spec_helper.rb
+            dest=/etc/serverspec/spec/spec_helper.rb mode=0755

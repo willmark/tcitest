@@ -1,0 +1,72 @@
+---
+- name: Install prerequisites
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - apache2
+    - python2.7
+    - python-pip
+    - python-cairo
+    - python-django
+    - python-django-tagging
+
+- name: Install Apache2 requirements
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - libapache2-mod-wsgi
+    - python-twisted
+    - python-memcache
+    - python-pysqlite2
+    - python-simplejson
+
+- name: Upgrade pip
+  pip:
+    name: pip
+    state: latest
+
+- name: Install python dependencies
+  pip:
+    name: "{{ item }}"
+  with_items:
+    - whisper
+    - carbon
+    - graphite-web
+
+- name: Use the sample hosts file from graphite team
+  template:
+    src: ../templates/example-graphite-vhost.j2
+    dest: /etc/apache2/sites-available/graphite
+  become: "yes"
+
+- name: Fix vconf.hosts file for Debian
+  lineinfile:
+    dest: /etc/apache2/sites-available/graphite
+    regexp: '^WSGISocketPrefix '
+    state: present
+    line: 'WSGISocketPrefix /var/run/apache2/wsgi'
+
+- name: Use example config files
+  command: cp {{ item.src }} {{ item.dest }}
+  with_items:
+    - {src: '/opt/graphite/conf/graphite.wsgi.example', dest: '/opt/graphite/conf/graphite.wsgi'}
+    - {src: '/opt/graphite/conf/carbon.conf.example', dest: '/opt/graphite/conf/carbon.conf'}
+    - {src: '/opt/graphite/conf/storage-schemas.conf.example', dest: '/opt/graphite/conf/storage-schemas.conf'}
+
+- name: Reset permissions
+  file:
+    path: "/opt/graphite/storage/"
+    owner: "www-data"
+    group: "www-data"
+    recurse: "yes"
+    state: directory
+
+- name: Add graphite to Apache
+  command: "/usr/sbin/a2ensite graphite"
+  notify:
+    - restart apache2
+
+- name: Start up Carbon cache
+  command: "/opt/graphite/bin/carbon-cache.py start"

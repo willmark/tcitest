@@ -1,0 +1,17 @@
+---
+- netscaler_provision:
+    hostname="{{ inventory_hostname }}"
+    mgmt_ip="{{ netscaler.mgmt_ip }}"
+    user="{{ netscaler.user }}"
+    password="{{ netscaler.password }}"
+    protocol="{{ netscaler.protocol }}"
+    adns_ip="{{ netscaler.adns_ip }}"
+    gslb_ip="{{ netscaler.gslb_ip }}"
+    gslb_netmask="{{ netscaler.gslb_netmask }}"
+    gslb_sitename="{{ netscaler.gslb_sitename }}"
+    gslb_master_ip="{{ lb_inputs.gslb_master_ip }}"
+    gslb_master_mgmt_ip="{{ lb_inputs.gslb_master_mgmt_ip }}"
+    gslb_master_sitename="{{ lb_inputs.gslb_master_sitename }}"
+    gslb_master_user="{{ lb_inputs.gslb_master_user }}"
+    gslb_master_password="{{ lb_inputs.gslb_master_password }}"
+  delegate_to: localhost

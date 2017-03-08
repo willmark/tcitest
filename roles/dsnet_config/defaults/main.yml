@@ -1,0 +1,96 @@
+---
+deviceList: []
+
+userAccounts: {}
+deviceIds: {}
+siteIds: {}
+deviceSiteIds: {}
+storagePoolIds: {}
+containerVaultIds: {}
+accessPoolIds: {}
+storageAccounts: []
+storageAccessKeys: {}
+vaultIds: {}
+mirrorIds: {}
+vaultTemplateIds: {}
+mirrorTemplateIds: {}
+
+
+dsnet:
+  networks: {}
+  #  dc1:
+  #    network: 192.168.0.0
+  #    subnet: 255.255.255.0
+  #    gateway: 192.168.0.1
+  manager: ~
+  validate_certs: "yes"
+  pending_devices:
+    # DO NOT CHANGE `count` use `--extra-vars 'new_devices=xx'`
+    count: "{{ new_devices|default(0) }}"
+    retries: 5
+    delay: 300
+  access_key_authentication_enabled: true
+  password_authentication_enabled: true
+  management_vault_configuration_type: "automatic"
+  device_level_api:
+    enabled: true
+    device_types:
+      - "manager"
+      - "accesser"
+      - "slicestor"
+      - "gateway"
+  provisioning_level: "createAndDelete"
+  logging:
+    enabled: true
+    add_http_access_log_syslog: true
+    add_audits_to_syslog: true
+    device_types:
+      - "manager"
+      - "accesser"
+      - "slicestor"
+      - "gateway"
+    facility: "logAudit"
+    ip_hostname_syslog: ~
+  tls_mode: "encryption"
+  device_user:
+    password: ~
+    old_password: "password"
+    ssh_keys: []
+
+user_accounts: {}
+
+storage:
+  validate_certs: "no"
+  accounts: []
+  access_keys: {}
+
+vaults: {}
+
+vault_templates: {}
+
+mirrors: {}
+
+mirror_templates: {}
+
+access_pools: {}
+
+ntp:
+  mode: "managerOnly"
+  servers:
+    - "servertime.service.softlayer.com"
+
+vault_default:
+  segment_size: 4
+  segment_size_unit: "MB"
+  name_index_enabled: true
+  privacy_enabled: true
+  versioning: "disabled"
+
+pendingDevices:
+  json:
+    responseData:
+      deviceRegistrations: []
+
+getStorageAccountsResponse:
+  json:
+    accounts: []

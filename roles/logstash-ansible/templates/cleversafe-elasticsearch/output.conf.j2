@@ -1,0 +1,8 @@
+output {
+    elasticsearch {
+      hosts => {{ es_destination }}"
+      workers => 1
+      index => "logstash-cleversafe-{{ datacenter }}-%{+YYYY.MM.dd}"
+      document_id => "%{fingerprint}"
+   }
+}

@@ -1,0 +1,50 @@
+---
+- name: permit access to microservice
+  ufw: rule=allow port=8080 proto=tcp
+       to_ip={{ pxe.tftp_server }}
+
+- name: create microservice directory
+  file: path=/opt/clev_microservice state=directory mode=0710
+
+- name: install microservice
+  template: src=opt/clev_microservice/pxe_microservice.py dest=/opt/clev_microservice/pxe_microservice.py owner=root group=root mode=0710
+  notify: restart microservice
+
+- name: install upstart service config
+  template: src=etc/init/pxe_microservice.conf dest=/etc/init/pxe_microservice.conf owner=root group=root mode=0644
+  notify: restart microservice
+
+- name: Set the aptitude
+  shell: aptitude install upstart-sysv
+  when: ansible_os_family == 'Debian'
+
+- name: update initramfs
+  shell: update-initramfs -u
+  when: ansible_os_family == 'Debian'
+
+- name: remove sysvinit for upstart change
+  shell: echo 'Yes, do as I say!' | apt-get remove sysvinit
+  when: ansible_os_family == 'Debian'
+
+- name: Install upstart
+  apt:
+    force: true
+    name: upstart
+    state: present
+  when: ansible_os_family == 'Debian'
+
+- name: restart machine
+  shell: shutdown -r now "Reboot triggered by Ansible"
+  async: 0
+  poll: 0
+  sudo: true
+  ignore_errors: true
+  when: ansible_os_family == 'Debian'
+
+- name: waiting for server to come back
+  local_action: wait_for host={{ inventory_hostname }} state=started delay=5 timeout=90
+  sudo: false
+  when: ansible_os_family == 'Debian'
+
+- name: start microservice
+  service: name=pxe_microservice state=started

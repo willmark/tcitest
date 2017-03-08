@@ -1,0 +1,18 @@
+filter {
+  grok {
+    match => { "message" => "%{TIMESTAMP_ISO8601:orig_timestamp} .*" }
+  }
+  if ( [type] == "ca_messages" or [type] == "cs_messages" ) and [message] =~ ".*mcelog:.*Location.*" {
+    grok {
+      match => { "message" => "%{TIMESTAMP_ISO8601:time} %{SYSLOGHOST:hostname} %{WORD:event_source}: Location SOCKET:%{NUMBER:dimm_socket_number} CHANNEL:%{DATA:dimm_channel_number} DIMM:%{DATA:dimm_number}" }
+      add_field => { "eventType" => "mce_location" }
+    }
+  }
+  if ( [type] == "ca_messages" or [type] == "cs_messages" ) and [message] =~ ".*mcelog:.*Fallback.*" {
+    grok {
+      match => { "message" => "%{TIMESTAMP_ISO8601:time} %{SYSLOGHOST:hostname} %{WORD:event_source}: Fallback Socket memory error count %{NUMBER:memory_error_count} exceeded threshold: %{NUMBER:memory_error_threshold} in %{DATA:time_period}" }
+      add_field => { "eventType" => "mce_fallback" }
+    }
+  }
+}
+

@@ -1,0 +1,48 @@
+---
+- name: "Ensure working directory exists"
+  file:
+    path: /tmp/{{ item.key }}-{{ item.value.version }}-{{ datacenter }}-{{ host_type }}
+    recurse: "yes"
+    state: directory
+  with_dict: "{{ agents }}"
+
+# - name: "Get Base agent package from repo"
+#  unarchive:
+#    src: https://artifacts.elastic.co/downloads/beats/filebeat/{{ item.key }}-{{ item.value.version }}-linux-x86_64.tar.gz
+#    dest: /tmp/{{ item.key }}-{{ item.value.version }}-{{ datacenter }}-{{ host_type }}
+#    extra_opts: ['--strip-components=1']
+#    remote_src: True
+#  register: package_result
+#  with_dict: "{{ agents }}"
+
+- name: "Get Base agent package from local"
+  unarchive:
+    src: ~/fetched/packagebuilder0/tmp/{{ item.key }}-{{ item.value.version }}.tar.gz
+    dest: /tmp/{{ item.key }}-{{ item.value.version }}-{{ datacenter }}-{{ host_type }}
+  when: stack_env == "dev"
+  register: package_result
+  with_dict: "{{ agents }}"
+
+
+- name: "Create agent config"
+  template:
+    src: ./templates/{{ item.value.conf_template }}
+    dest: /tmp/{{ item.key }}-{{ item.value.version }}-{{ datacenter }}-{{ host_type }}/{{ item.value.config_path|default("") }}{{ item.key }}{{ item.value.ext }}
+    validate: /tmp/{{ item.key }}-{{ item.value.version }}-{{ datacenter }}-{{ host_type }}/{{ item.key }} -configtest -c %s
+  register: conf_result
+  with_dict: "{{ agents }}"
+
+- name: "Ensure build artifact directory exists"
+  file:
+    path: /tmp/builds
+    recurse: "yes"
+    state: directory
+
+- name: "Create agent package"
+  command: |
+    bash -c "rm /tmp/builds/{{ item.key }}-{{ item.value.version }}-{{ datacenter }}-{{ host_type }}_*
+      tar -zcf /tmp/builds/{{ item.key }}-{{ item.value.version }}-{{ datacenter }}-{{ host_type }}_{{ ansible_date_time.year ~ ansible_date_time.month ~ ansible_date_time.day ~ ansible_date_time.hour ~ ansible_date_time.minute }}.tar.gz /tmp/{{ item.key }}-{{ item.value.version }}-{{ datacenter }}-{{ host_type }}"
+  when: conf_result|changed or package_result|changed
+  environment:
+    GZIP: -n
+  with_dict: "{{ agents }}"

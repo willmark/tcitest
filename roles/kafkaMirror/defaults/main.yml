@@ -1,0 +1,5 @@
+---
+
+kafka_mirror_num_consumer_stream: 1
+kafka_mirror_whitelist: '.*'
+kafkaInSL_group_name: 'kafkaInSL'

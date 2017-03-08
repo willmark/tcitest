@@ -1,0 +1,9 @@
+---
+name: carbon-c-relay
+daemon: /usr/bin/$NAME
+conf_file: /etc/carbon-c-relay.conf
+daemon_user: carbon-c-relay
+daemon_group: carbon-c-relay
+pidfile: /var/run/carbon-c-relay.pid
+carbon_c_relay_base_dir: /etc/init.d
+archive_path: /var/cache/apt/archives

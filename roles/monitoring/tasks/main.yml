@@ -1,0 +1,184 @@
+---
+- name: create monitoring group
+  group: name=monitor state=present
+
+- name: install ruby
+  apt: pkg={{ item }}
+  with_items:
+    - ruby2.0
+    - ruby2.0-dev
+    - build-essential
+  register: result
+  until: result|succeeded
+  retries: 5
+
+- name: rename old ruby installation (ubuntu bug 1310292)
+  command: dpkg-divert --add --rename --divert /usr/bin/{{ item }}.divert /usr/bin/{{ item }}
+  with_items:
+    - ruby
+    - gem
+
+- name: force ruby2.0 (ubuntu bug 1310292)
+  command: update-alternatives --install /usr/bin/{{ item }} {{ item }} /usr/bin/{{ item }}2.0 1
+  with_items:
+    - ruby
+    - gem
+
+- name: ruby dependencies
+  gem: name={{ item }}
+  with_items:
+    - sensu-plugin
+  register: result
+  until: result|succeeded
+  retries: 5
+
+- name: python dependencies
+  apt: pkg={{ item }}
+  with_items:
+    - python-pip
+    - python-jinja2
+  register: result
+  until: result|succeeded
+  retries: 5
+
+- name: install sensu
+  apt: pkg={{ item }}
+  with_items:
+    - sensu
+    - libfile-which-perl
+  register: result
+  until: result|succeeded
+  retries: 5
+
+- name: sensu sudoers
+  template: src=sensu-sudoers dest=/etc/sudoers.d/sensu owner=root
+            group=root mode=0440
+
+- name: add sensu to monitoring group
+  user: name=sensu groups=monitor append=yes
+
+- name: ensure /etc/sudoers.d/sensu permissions are 0440
+  file: path=/etc/sudoers.d/sensu mode=0440
+
+- name: sensu gems directory
+  file: dest=/opt/sensu/gems state=directory owner=sensu mode=0750
+
+- name: sensu cert directory
+  file: dest=/etc/sensu/ssl state=directory owner=sensu mode=0750
+
+- name: install sensu cert
+  template: dest=/etc/sensu/ssl/cert.pem src=certs/sensu-client-cert.pem
+            owner=root group=sensu mode=0640
+  notify: restart sensu-client
+  when: monitoring.client_cert is defined
+
+- name: install sensu key
+  template: dest=/etc/sensu/ssl/key.pem src=certs/sensu-client-key.pem
+            owner=root group=sensu mode=0640
+  notify: restart sensu-client
+  when: monitoring.client_key is defined
+
+- name: install manager cert
+  template: dest=/etc/sensu/ssl/manager_cert.pem src=certs/manager-cert.pem
+            owner=root group=sensu mode=0640
+  notify: restart sensu-client
+  when: monitoring.manager_cert is defined
+
+- name: install accessor cert
+  template: dest=/etc/sensu/ssl/accessor_cert.pem src=certs/accessor-cert.pem
+            owner=root group=sensu mode=0640
+  notify: restart sensu-client
+  when: monitoring.accessor_cert is defined
+
+- name: use embedded ruby
+  lineinfile: dest=/etc/default/sensu regexp=^EMBEDDED_RUBY
+              line=EMBEDDED_RUBY=true
+  notify: restart sensu-client
+
+- name: ensure PATH contains /usr/local/bin (OpenStack clients)
+  lineinfile: dest=/etc/default/sensu regexp=^PATH
+              line="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  notify: restart sensu-client
+
+- name: sensu client config
+  template: src=config.json dest=/etc/sensu/config.json owner=root
+            group=root
+            mode=0444
+  notify: restart sensu-client
+
+- name: enable and start sensu-client
+  service: name=sensu-client state=started enabled=yes
+
+- name: override sensu-client startup
+  shell: update-rc.d sensu-client defaults
+
+- name: install sensu plugin pip modules
+  pip: name=sensu_plugin version=0.1.0
+  register: result
+  until: result|succeeded
+  retries: 5
+
+- name: install boto3 pip module (aws connect)
+  pip: name=boto3
+  register: result
+  until: result|succeeded
+  retries: 5
+
+- name: create sensu conf dir
+  file: dest=/etc/sensu/conf.d/checks state=directory owner=root mode=0755
+
+- name: check existing sensu plugins dir
+  stat: path=/etc/sensu/plugins
+  register: sensu_plugins_dir
+
+- name: remove sensu plugins dir if it exists
+  file: dest=/etc/sensu/plugins state=absent
+  when: sensu_plugins_dir.stat.isdir is defined and sensu_plugins_dir.stat.isdir
+  notify: restart sensu-client
+
+- name: sensu plugins directory
+  file: dest=/etc/sensu/plugins state=directory owner=sensu mode=0755
+
+- name: sensu plugins install
+  template: src=plugins/{{ item }} dest=/etc/sensu/plugins/{{ item }} owner=root
+            group=root mode=0755
+  with_items:
+    - dsnet-manager-access-bydevice.rb
+    - cleversafe-sla.py
+    - check-cpu.rb
+    - check-disk.rb
+    - check-mem.sh
+    - check-procs.rb
+
+- name: sensu dsnet-manager-access hook
+  sensu_check: name=dsnet-manager-access plugin=dsnet-manager-access-bydevice.rb
+               args="-i {{ monitoring.manager_ip }} -u {{ monitoring.manager_user }} -p '{{ monitoring.manager_pass }}'  {% if monitoring.manager_cert is defined -%} -c /etc/sensu/ssl/manager_cert.pem {% endif -%} {% if monitoring.ignore_certs -%} -n {% endif -%} {% if monitoring.checks.dsnet.dependencies is defined -%} -d {{ monitoring.checks.dsnet.dependencies }} {% endif -%} {% if monitoring.checks.dsnet.tags is defined -%} -t {{ monitoring.checks.dsnet.tags }} {% endif -%} {% if monitoring.checks.dsnet.handle -%} -b {% endif -%} {% if monitoring.checks.dsnet.handlers -%} -l {{ monitoring.checks.dsnet.handlers }} {% endif -%} {% if monitoring.checks.dsnet.service_owner is defined -%} -s {{ monitoring.checks.dsnet.service_owner }} {% endif -%}"
+  notify: restart sensu-client
+
+- name: sensu cleversafe-sla hook
+  sensu_metrics_check: name=cleversafe-sla plugin=cleversafe-sla.py
+               args='-s {{ monitoring.graphite.host_prefix }} -i {{ monitoring.graphite.accessor_address }} -p {{ monitoring.graphite.provisioning_code }} -t {{ monitoring.graphite.timeout }} {% if monitoring.accessor_cert is defined -%} -c /etc/sensu/ssl/accessor_cert.pem {% endif -%} {% if monitoring.ignore_certs -%} -n {% endif -%}'
+  notify: restart sensu-client
+
+- name: cpu check hook
+  sensu_check: name=cpu plugin=check-cpu.rb args='-w {{ monitoring.checks.cpu.warning }} -c {{ monitoring.checks.cpu.critical }}'
+  notify: restart sensu-client
+
+- name: disk check hook
+  sensu_check: name=disk plugin=check-disk.rb args='-w {{ monitoring.checks.disk.warning }} -c {{ monitoring.checks.disk.critical }}'
+  notify: restart sensu-client
+
+- name: memory check hook
+  sensu_check: name=memory plugin=check-mem.sh
+               args="-w {{ monitoring.checks.memory.warning }} -c {{ monitoring.checks.memory.critical }}"
+  notify: restart sensu-client
+
+- name: add sensu to adm group so it can read log files
+  user: name=sensu groups=adm append=yes
+
+- name: log scanning caching dir
+  file: path=/var/cache/check-log owner=sensu state=directory
+
+- include: serverspec.yml
+  when: serverspec.enabled|default("True")|bool
+  tags: serverspec

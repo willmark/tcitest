@@ -1,0 +1,5 @@
+---
+git_repo_dest: "/var/src/git"
+git_pkgs:
+ - git
+ - git-svn

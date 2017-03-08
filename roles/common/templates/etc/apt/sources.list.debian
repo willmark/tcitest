@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+
+deb {{ debian_mirror }} {{ ansible_distribution_release }} main contrib non-free
+deb-src {{ debian_mirror }} {{ ansible_distribution_release }} main contrib non-free
+
+# enable these when they are available on the REPO MIRROR
+#
+# deb http://mirrors.service.networklayer.com/debian-security wheezy/updates main contrib non-free
+# deb-src http://mirrors.service.networklayer.com/debian-security wheezy/updates main contrib non-free

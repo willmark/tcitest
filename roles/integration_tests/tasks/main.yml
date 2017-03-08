@@ -1,0 +1,71 @@
+---
+- name: Install git
+  apt:
+    name: git
+    state: present
+
+- name: remove apt-get requests
+  apt:
+    name: python-requests
+    state: absent
+
+- name: Install setuptools
+  apt:
+    name: python-setuptools
+    state: present
+
+- easy_install:
+    name: requests
+    state: latest
+
+- name: create dir
+  file:
+    path: '/opt/cleversafe/tests'
+    state: directory
+    mode: 0644
+
+# - name: git release zip
+#   get_url:
+#     url: https://github.ibm.com/cleversafe-infra/cleversafe-tests/archive/v0.1.0.tar.gz
+#     dest: '/opt/cleversafe/tests'
+#     mode: 0755
+
+- name: untar
+  unarchive:
+    src: v0.1.0.tar.gz
+    dest: /opt/cleversafe/tests
+    # remote_src: true
+
+# - name: git clone stacktach repo
+#   git: repo=ssh://git@github.ibm.com/cleversafe-infra/{{ item.repo }}.git
+#        dest={{ item.dest }}
+#        recursive=no
+#        force=yes
+#        accept_hostkey=True
+#   with_items:
+#     - dest: 'tests'
+#       repo: cleversafe-tests
+
+- name: Execute config verification first run
+  shell: python /opt/cleversafe/tests/cleversafe-tests-0.1.0/integration_tests/verify_conf.py --first-run --manager-ip "{{ dsnet_manager_host }}" --manager-account admin --manager-account-password password
+  register: config_verification_result
+
+- name: Display verification result
+  debug:
+    var: config_verification_result
+
+- name: Execute config validation
+  shell: python /opt/cleversafe/tests/cleversafe-tests-0.1.0/integration_tests/verify_conf.py --validate --manager-ip "{{ dsnet_manager_host }}" --manager-account admin --manager-account-password password
+  register: config_validation_result
+
+- name: Display validation result
+  debug:
+    var: config_validation_result
+
+- name: Execute config tests
+  shell: python /opt/cleversafe/tests/cleversafe-tests-0.1.0/integration_tests/verify_conf.py --test --manager-ip "{{ dsnet_manager_host }}" --manager-account admin --manager-account-password password
+  register: config_test_result
+
+- name: Display test result
+  debug:
+    var: config_test_result

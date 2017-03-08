@@ -1,0 +1,85 @@
+{% if lb_inputs.delegation_id is defined %}
+{% set delegation_id = lb_inputs.delegation_id %}
+{% else %}
+{% set delegation_id = lb_inputs.endpoint_prefixes.global[0] %}
+{% endif %}
+
+PUBLIC add to subdomain {{ lb_inputs.endpoint_suffix }}
+=======================================================
+# A records for the ADNS IPs of the netscalers, used for subdomain delegation (NS records)
+{% for host in groups['netscalers'] %}
+ns{{ loop.index }}-{{ delegation_id }} A {{ hostvars[host]['netscaler']['adns_ip'] }}
+{% endfor %}
+
+# NS records (subdomain delegation)
+#global
+{% for prefix in lb_inputs.endpoint_prefixes.global %}
+{% for host in groups['netscalers'] %}
+{{ prefix }}-lb NS ns{{ loop.index }}-{{ delegation_id }}.{{ lb_inputs.endpoint_suffix }}.
+{% endfor %}
+{% endfor %}
+
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+#site specific
+{% for prefix in lb_inputs.endpoint_prefixes.local %}
+{% for host in groups['netscalers'] %}
+{{ prefix }}-lb NS ns{{ loop.index }}-{{ delegation_id }}.{{ lb_inputs.endpoint_suffix }}.
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+# CNAMEs for the endpoints clients will use
+#global
+{% for prefix in lb_inputs.endpoint_prefixes.global %}
+{{ prefix }} CNAME {{ prefix }}-lb.{{ lb_inputs.endpoint_suffix }}.
+*.{{ prefix }} CNAME {{ prefix }}-lb.{{ lb_inputs.endpoint_suffix }}.
+{% endfor %}
+
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+#site specific
+{% for prefix in lb_inputs.endpoint_prefixes.local %}
+{{ prefix }} CNAME {{ prefix }}-lb.{{ lb_inputs.endpoint_suffix }}.
+*.{{ prefix }} CNAME {{ prefix }}-lb.{{ lb_inputs.endpoint_suffix }}.
+{% endfor %}
+{% endif %}
+
+{% if netscaler.int_vip_ip is defined %}
+PRIVATE - Used with select only and to subdomain int.{{ lb_inputs.endpoint_suffix }}
+=====================================================================================
+# A records for the ADNS IPs of the netscalers, used for subdomain delegation (NS records)
+{% for host in groups['netscalers'] %}
+ns{{ loop.index }}-{{ delegation_id }} A {{ hostvars[host]['netscaler']['adns_ip'] }}
+{% endfor %}
+
+# NS records (subdomain delegation)
+#global
+{% for prefix in lb_inputs.endpoint_prefixes.global %}
+{% for host in groups['netscalers'] %}
+{{ prefix }}-lb NS ns{{ loop.index }}-{{ delegation_id }}.int.{{ lb_inputs.endpoint_suffix }}.
+{% endfor %}
+{% endfor %}
+
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+#site specific
+{% for prefix in lb_inputs.endpoint_prefixes.local %}
+{% for host in groups['netscalers'] %}
+{{ prefix }}-lb NS ns{{ loop.index }}-{{ delegation_id }}.int.{{ lb_inputs.endpoint_suffix }}.
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+# CNAMEs for the endpoints clients will use
+#global
+{% for prefix in lb_inputs.endpoint_prefixes.global %}
+{{ prefix }} CNAME {{ prefix }}-lb.int.{{ lb_inputs.endpoint_suffix }}.
+*.{{ prefix }} CNAME {{ prefix }}-lb.int.{{ lb_inputs.endpoint_suffix }}.
+{% endfor %}
+
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+#site specific
+{% for prefix in lb_inputs.endpoint_prefixes.local %}
+{{ prefix }} CNAME {{ prefix }}-lb.int.{{ lb_inputs.endpoint_suffix }}.
+*.{{ prefix }} CNAME {{ prefix }}-lb.int.{{ lb_inputs.endpoint_suffix }}.
+{% endfor %}
+{% endif %}
+{% endif %}

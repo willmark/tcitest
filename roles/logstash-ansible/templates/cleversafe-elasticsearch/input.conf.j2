@@ -1,0 +1,12 @@
+input {  
+    kafka {
+      bootstrap_servers => "{{ zk_nodes }}"
+      topics_pattern => "{{ datacenter }}-GEO-elasticsearch"
+      auto_offset_reset => "smallest"
+      add_field => {
+        log_transfer_host => "{{ ansible_hostname }}"
+        log_transfer_instance => "{{ lr_name }}"
+        log_transfer_dc => "{{ datacenter }}"
+      }
+    }
+}

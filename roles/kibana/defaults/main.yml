@@ -1,0 +1,23 @@
+---
+kibana_server_port: 5601
+kibana_server_host: 0.0.0.0
+kibana_server_max_payload_bytes: 1048576
+
+kibana_index: .kibana
+kibana_default_app_id: discover
+
+kibana_elasticsearch_url: "http://localhost:9200"
+kibana_elasticsearch_preserve_host: true
+kibana_elasticsearch_ssl_verify: true
+
+kibana_elasticsearch_shard_timeout: 0
+kibana_elasticsearch_request_timeout: 30000
+kibana_elasticsearch_startup_timeout: 5000
+
+kibana_logging_silent: false
+kibana_logging_quiet: false
+kibana_logging_verbose: false
+
+kibana_apache_proxy: false
+
+kibana_ufw_enable: false

@@ -1,0 +1,35 @@
+---
+- name: install version-locked gems
+  gem: name="{{ item.name }}" version="{{ item.version }}"
+       executable=/opt/sensu/embedded/bin/gem
+       user_install=no
+  with_items: "{{ serverspec.version_locked_gems }}"
+  notify: restart sensu-client
+
+- name: install serverspec gem
+  gem: name=serverspec version="{{ serverspec.version }}"
+       executable=/opt/sensu/embedded/bin/gem
+       user_install=no
+  notify: restart sensu-client
+
+- name: install serverspec sensu plugin
+  gem: name=sensu-plugins-serverspec version=0.0.2
+       executable=/opt/sensu/embedded/bin/gem
+       user_install=no
+  notify: restart sensu-client
+
+- name: install serverspec-extended-types gem
+  gem: name=serverspec-extended-types version=0.0.3
+       executable=/opt/sensu/embedded/bin/gem
+       user_install=no
+  notify: restart sensu-client
+
+- name: install sensu serverspec plugin
+  template: src=plugins/check-serverspec.rb dest=/etc/sensu/plugins/check-serverspec.rb owner=root
+            group=root mode=0755
+
+- name: serverspec sensu hook
+  sensu_check: name=serverspec-check plugin=check-serverspec.rb
+               args='-d /etc/serverspec -s warning' use_sudo=true
+               interval={{ serverspec.interval }}
+  notify: restart sensu-client

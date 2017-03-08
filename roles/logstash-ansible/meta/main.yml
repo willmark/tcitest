@@ -1,0 +1,6 @@
+---
+
+# dependencies:
+#   - role: pyrrrat.ufw
+#     when: logstash_ufw_rules
+#     ufw_rules: "{{ logstash_ufw_rules }}"

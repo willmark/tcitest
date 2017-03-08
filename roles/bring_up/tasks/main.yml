@@ -1,0 +1,17 @@
+---
+- name: install pip
+  apt: name=python-pip state=present update_cache=true
+
+# Install softlayer cli package
+- pip:
+    name: softlayer
+
+- name: bring up vagrant nodes
+  shell: sh vagrant_up >> boot_cs_log.txt
+  ignore_errors: true
+  when: stack_env == 'local-dev'
+
+- name: bring up staging nodes
+  shell: bash /tmp/staging_up >> boot_cs_log.txt
+  ignore_errors: true
+  when: stack_env == 'staging'

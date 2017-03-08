@@ -1,0 +1,87 @@
+# Kibana is served by a back end server. This controls which port to use.
+server.port: {{ kibana_server_port }}
+
+# The host to bind the server to.
+server.host: "{{ kibana_server_host }}"
+
+# If you are running kibana behind a proxy, and want to mount it at a path,
+# specify that path here. The basePath can't end in a slash.
+# server.basePath: ""
+
+# The maximum payload size in bytes on incoming server requests.
+server.maxPayloadBytes: {{ kibana_server_max_payload_bytes }}
+
+# The Elasticsearch instance to use for all your queries.
+elasticsearch.url: "{{ kibana_elasticsearch_url }}"
+
+# preserve_elasticsearch_host true will send the hostname specified in `elasticsearch`. If you set it to false,
+# then the host you use to connect to *this* Kibana instance will be sent.
+elasticsearch.preserveHost: {{ kibana_elasticsearch_preserve_host }}
+
+# Kibana uses an index in Elasticsearch to store saved searches, visualizations
+# and dashboards. It will create a new index if it doesn't already exist.
+kibana.index: "{{ kibana_index }}"
+
+# The default application to load.
+kibana.defaultAppId: "{{ kibana_default_app_id }}"
+
+# If your Elasticsearch is protected with basic auth, these are the user credentials
+# used by the Kibana server to perform maintenance on the kibana_index at startup. Your Kibana
+# users will still need to authenticate with Elasticsearch (which is proxied through
+# the Kibana server)
+{% if kibana_elasticsearch_username is defined %}
+elasticsearch.username: "{{ kibana_elasticsearch_username }}"
+{% endif %}
+{% if kibana_elasticsearch_password is defined %}
+elasticsearch.password: "{{ kibana_elasticsearch_password }}"
+{% endif %}
+
+# SSL for outgoing requests from the Kibana Server to the browser (PEM formatted)
+# server.ssl.cert: /path/to/your/server.crt
+# server.ssl.key: /path/to/your/server.key
+
+# Optional setting to validate that your Elasticsearch backend uses the same key files (PEM formatted)
+# elasticsearch.ssl.cert: /path/to/your/client.crt
+# elasticsearch.ssl.key: /path/to/your/client.key
+
+# If you need to provide a CA certificate for your Elasticsearch instance, put
+# the path of the pem file here.
+{% if kibana_elasticsearch_ssl_ca is defined %}
+elasticsearch.ssl.ca: {{ kibana_elasticsearch_ssl_ca }}
+{% endif %}
+
+# Set to false to have a complete disregard for the validity of the SSL
+# certificate.
+elasticsearch.ssl.verify: {{ kibana_elasticsearch_ssl_verify }}
+
+# Time in milliseconds to wait for elasticsearch to respond to pings, defaults to
+# request_timeout setting
+{% if kibana_elasticsearch_ping_timeout is defined %}
+elasticsearch.pingTimeout: {{ kibana_elasticsearch_ping_timeout }}
+{% endif %}
+
+# Time in milliseconds to wait for responses from the back end or elasticsearch.
+# This must be > 0
+elasticsearch.requestTimeout: {{ kibana_elasticsearch_request_timeout }}
+
+# Time in milliseconds for Elasticsearch to wait for responses from shards.
+# Set to 0 to disable.
+elasticsearch.shardTimeout: {{ kibana_elasticsearch_shard_timeout }}
+
+# Time in milliseconds to wait for Elasticsearch at Kibana startup before retrying
+elasticsearch.startupTimeout: {{ kibana_elasticsearch_startup_timeout }}
+
+# Set the path to where you would like the process id file to be created.
+# pid.file: /var/run/kibana.pid
+
+# If you would like to send the log output to a file you can set the path below.
+# logging.dest: stdout
+
+# Set this to true to suppress all logging output.
+logging.silent: {{ kibana_logging_silent }}
+
+# Set this to true to suppress all logging output except for error messages.
+logging.quiet: {{ kibana_logging_quiet }}
+
+# Set this to true to log all events, including system usage information and all requests.
+logging.verbose: {{ kibana_logging_verbose }}

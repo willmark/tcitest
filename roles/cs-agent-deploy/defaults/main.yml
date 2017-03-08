@@ -1,0 +1,17 @@
+---
+dsnet_manager:
+  ip_address: 172.16.1.200
+  build_file: roles/cs-agent-deploy/agent_files/clevos-agent-collectd.tar.gz
+  api_username: admin
+  api_password: password
+  agent_name: external_collectd_ansible
+  agent_desc: collectd-daemon
+  device_type: dsnetmanager
+
+accesser:
+  ip_address: 172.16.1.201
+  device_type: accesser
+
+slicestor:
+  ip_address: 172.16.1.202
+  device_type: slicestor

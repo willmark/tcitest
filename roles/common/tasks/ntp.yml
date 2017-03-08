@@ -1,0 +1,21 @@
+---
+- name: install ntp
+  apt: pkg=ntp
+  register: result
+  until: result|succeeded
+  retries: 5
+
+- name: install ntp.conf
+  template:
+    dest: /etc/ntp.conf
+    src: etc/ntp.conf
+    mode: 0644
+    owner: root
+  notify:
+    - restart-ntp
+
+- name: ntp service enabled
+  service:
+    name: ntp
+    state: started
+    enabled: true

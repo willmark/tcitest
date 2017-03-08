@@ -1,0 +1,4 @@
+---
+- name: fail the play if it is not just a name used already error
+  fail: msg="Exclude name used already error"
+  when: "'Please select a different name and try again' not in bucket_info.stderr"

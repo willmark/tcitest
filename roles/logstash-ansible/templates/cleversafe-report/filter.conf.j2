@@ -1,0 +1,52 @@
+filter {
+  grok {
+    match => { "message" => "{%{QS}:%{QS:time_hr},%{QS}:%{NUMBER:report_time},%{QS:report_event_type}:%{GREEDYDATA:json_message}}" }
+  }
+  mutate{
+    convert => ["report_time", "float"]
+    gsub => [
+      "report_event_type", "\"",""
+    ]
+  }
+  if !(([report_event_type] == "resource_manager") or ([report_event_type] == "io_policy") or ([report_event_type] == "control_throttle")) {
+    drop{}
+  }
+  else {
+    mutate {
+      gsub => [
+        "json_message", ":\"",":",
+        "json_message", "\",",",",
+        "json_message", "\"\}","}"
+      ]
+    }
+    if ([report_event_type] == "control_throttle") {
+      json {
+        source => "json_message"
+        target => "control_throttle"
+      }
+    }
+    else if ([report_event_type] == "io_policy") {
+      json {
+        source => "json_message"
+        target => "io_policy"
+      }
+    }
+    else {
+      json {
+        source => "json_message"
+        target => "resource_manager"
+      }
+    }
+    mutate{
+      remove_field => [json_message]
+      gsub => [
+        "time_hr", "\"",""
+      ]
+    }
+    date {
+      match => [ "time_hr", "yyyy-MM-dd HH:mm:ss.SSS" ]
+      target => "orig_timestamp"
+      timezone => "Etc/GMT"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+---
+# Be sure to define the grafana_admin_password variable containing a SALT
+# created with:
+#   python -c 'import crypt; print crypt.crypt("grafana password", "$1$SomeSalt$")'
+#
+# Example:
+# grafana_admin_password: $1$SomeSalt$UqddPX3r4kH3UL5jq5/ZI.
+#
+# This variable should NOT be defined here but rather in group_vars or host_vars
+#

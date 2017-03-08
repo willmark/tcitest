@@ -1,0 +1,35 @@
+---
+# Download mc minio command line client
+- name: download mc client
+  get_url:
+    url: https://dl.minio.io/client/mc/release/linux-amd64/mc
+    dest: /tmp/mc
+    mode: 0755
+
+- shell: /tmp/mc --help
+  register: minio_client_information
+
+- debug:
+    var: minio_client_information
+
+- name: Grep info for access key
+  shell: grep -E -o "aws_access_key_id=.{0,100}" /etc/boto.cfg | grep -o '=.*' | sed 's/\=//g'
+  register: acc_key
+
+- name: Grep info about secret access key
+  shell: grep -E -o "aws_secret_access_key=.{0,100}" /etc/boto.cfg | grep -o '=.*' | sed 's/\=//g'
+  register: secret_key
+
+- name: Register host information with mc
+  shell: /tmp/mc config host add {{datacenter}} {{load_balancer_url}} {{acc_key.stdout}} {{secret_key.stdout}} S3v4
+
+- name: Create bucket
+  shell: /tmp/mc mb vagrant/newbucket --insecure
+  register: bucket_info
+  ignore_errors: true
+
+- debug:
+    var: bucket_info.stderr
+
+- include: bucket_check.yml
+  when: bucket_info.stderr != ""

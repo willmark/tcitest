@@ -1,0 +1,54 @@
+---
+
+# carbon-c-relay package is present in below mirror. So we add that to sources.list file
+- name: Add carbon-c-relay mirror link in sources.list file
+  sudo: "yes"
+  lineinfile: dest=/etc/apt/sources.list
+              regexp=''
+              insertafter=EOF
+              line='deb http://http.us.debian.org/debian unstable main'
+
+# Update debain indices before installing carbon-c-relay
+- name: Update debain sources indices
+  sudo: "yes"
+  apt:
+    update_cache: "yes"
+
+- name: Install carbon-c-relay agent on kafka nodes
+  apt:
+    name: carbon-c-relay
+    state: present
+
+- name: Load init script for service
+  template: src=carbon-c-relay_init.j2 dest="{{ carbon_c_relay_base_dir }}/carbon-c-relay" mode=0755
+  notify:
+    - Start carbon-c-relay
+
+- name: flush handlers for collectd service
+  meta: flush_handlers
+
+- name: Load configuration file for service
+  template: src=carbon-c-relay_conf.j2 dest="/etc/carbon-c-relay.conf" mode=0644
+  notify:
+    - Restart carbon-c-relay
+
+# Setting up carbonserver API on nodes
+- name: Install go on grahite-data nodes
+  apt:
+    name: golang
+    state: present
+
+- name: Install git on graphite-data nodes
+  apt:
+    name: git
+    state: present
+
+- name: Execute builder script that pulls down carbonserver github dependencies and generate carbonserver executable
+  shell: /vagrant/library/carbonserver_build.sh
+
+
+- name: Copy carbonserver go executable to etc directory
+  copy:
+    src: roles/graphite-data/files/carbonserver
+    dest: /etc
+    mode: 0755

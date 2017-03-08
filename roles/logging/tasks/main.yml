@@ -1,0 +1,53 @@
+---
+- name: create logstash user
+  user: name="{{ logging.service.user }}" comment="Logstash Service User"
+        shell=/sbin/nologin system=yes home="{{ logging.service.home }}"
+
+- name: install logstash-forwarder
+  apt: pkg=logstash-forwarder
+  notify: stop logstash-forwarder
+
+- name: install logstash-forwarder service
+  template: src=etc/init/logstash-forwarder.conf dest=/etc/init/logstash-forwarder.conf mode=0644
+
+- name: remove logstash-forwarder init.d
+  file: dest=/etc/init.d/logstash-forwarder state=absent
+
+- name: configure logstash-forwarder defaults
+  template: src=etc/default/logstash-forwarder dest=/etc/default/logstash-forwarder mode=0644
+  notify: restart logstash-forwarder
+
+- name: logstash-forwarder config directory
+  file: dest=/etc/logstash-forwarder.d state=directory mode=0755
+
+- name: configure logstash-forwarder forwarding
+  template: src=etc/logstash-forwarder.d/main.conf dest=/etc/logstash-forwarder.d/main.conf mode=0644
+  notify: restart logstash-forwarder
+  when: logging.forward.host
+
+- name: custom cert auth directory
+  file: dest=/etc/logstash-forwarder/ssl recurse=true state=directory mode=0755
+  when: logging.forward.host and logging.forward.tls.enabled
+
+- name: (possibly self-signed) ssl cert
+  template: src=logging-forward.crt dest=/etc/logstash-forwarder/ssl/logging-forward.crt mode=0644
+  notify:
+    - restart logstash-forwarder
+  when: logging.forward.host and logging.forward.tls.enabled
+
+- meta: flush_handlers
+
+- name: start and enable logstash-forwarder service
+  service: name=logstash-forwarder state=started enabled=yes
+
+- include: checks.yml
+  when: sensu.client.enable_checks|default('True')|bool
+  tags: sensu-checks
+
+- include: metrics.yml
+  when: sensu.client.enable_metrics|default('True')|bool
+  tags: sensu-metrics
+
+- include: serverspec.yml
+  when: serverspec.enabled|default("True")|bool
+  tags: serverspec

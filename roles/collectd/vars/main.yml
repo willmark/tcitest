@@ -1,0 +1,10 @@
+---
+# collectd related variables
+
+# collectd_version: 5.6.1-2-1
+collectd_softlayer_mirror: deploymentdal0101.softlayer.local/repos/softlayer/debian/pool/main/c/collectd
+collectd_jmx_port: 2999
+collectd_config_file: /etc/collectd/collectd.conf
+collectd_status_dir: /etc/init.d/collectd
+collectdmon_pid_file: /var/run/collectdmon.pid
+collectd_plugn_dir: /usr/lib/collectd

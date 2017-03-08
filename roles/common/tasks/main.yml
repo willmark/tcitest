@@ -1,0 +1,58 @@
+---
+- name: network config
+  copy: content="{{ network_interfaces|default(None) }}" dest=/etc/network/interfaces
+        force=yes owner=root group=root mode=0644
+  register: network_config
+  when: network_interfaces|default(None)
+  tags: network
+
+- name: reboot if requested
+  command: shutdown -r now
+  async: 0
+  poll: 0
+  failed_when: false
+  when: network_config.changed
+  tags: network, reboot, restart
+
+- name: wait 5 minutes after reboot
+  pause: seconds=300
+  when: network_config.changed
+
+- name: ubuntu apt sources list
+  template: src=etc/apt/sources.list dest=/etc/apt/sources.list
+  when: ubuntu_mirror|default(None) and ansible_distribution == 'Ubuntu'
+
+- name: debian apt sources list
+  template: src=etc/apt/sources.list.debian dest=/etc/apt/sources.list
+  when: debian_mirror|default(None) and ansible_distribution == 'Debian'
+
+# softlayer hard removes this dir on VMs causing python apt to fail
+- name: ensure apt lock dir exists
+  file: dest=/var/lib/apt/lists state=directory
+
+- name: update apt cache
+  apt: update_cache=yes
+
+- include: ntp.yml
+
+- include: ssh.yml
+
+- include: ufw.yml
+
+- include: audit-logging.yml
+
+- include: password-policy.yml
+
+- include: system-file-permissions.yml
+
+- include: serverspec.yml
+  when: serverspec.enabled|default('True')|bool
+  tags: serverspec
+
+- name: install pip
+  apt: name=python-pip state=present update_cache=true
+  when: inventory_hostname in groups['backup']
+
+- name: install SL OS python lib
+  pip: name=softlayer-object-storage
+  when: inventory_hostname in groups['backup']

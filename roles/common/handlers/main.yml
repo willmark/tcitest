@@ -1,0 +1,11 @@
+---
+- name: restart nodes
+  shell: shutdown -r now
+  become: true
+  ignore_errors: true
+
+- name: restart-ntp
+  service: name=ntp state=restarted
+
+- name: reload-sshd
+  service: name=ssh state=reloaded

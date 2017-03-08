@@ -1,0 +1,113 @@
+---
+- name: "Install Packages for Building Beats"
+  become_user: root
+  package:
+    name: "{{ item }}"
+    state: installed
+  with_items: "{{ beats_build_pkgs }}"
+
+- name: "Install Required Gems For Beats Building"
+  become_user: root
+  command: bash -lc "gem install {{ item }}"
+  args:
+    creates: /usr/local/bin/pleaserun
+  with_items: "{{ beats_build_gems }}"
+
+- name: Install Pip Virtualenv
+  pip:
+    name: virtualenv
+
+- name: Install Go-{{ go.version }}
+  unarchive:
+    src: https://storage.googleapis.com/golang/go{{ go.version }}.linux-amd64.tar.gz
+    dest: /usr/local
+    owner: root
+    group: root
+    remote_src: "True"
+
+- name: "Symlink Filebeat Build Directory"
+  become_user: root
+  file: src="{{ git_repo_dest }}/Bret-Noble-beats" dest="{{ git_repo_dest }}/beats" state=link
+
+- name: "Make Agents"
+  make:
+    chdir: "{{ git_repo_dest }}/beats/{{ item.key }}"
+  register: make_results
+  environment:
+    GOPATH: /var/src/git/go
+    PATH: /usr/local/go/bin:/var/src/git/go/bin:{{ ansible_env.PATH }}
+  with_dict: "{{ agents }}"
+
+
+- name: Clean packing directory
+  command: |
+    bash -c "
+    rm -rf /tmp/pkg-{{ item.key }}/*
+    mkdir -p /tmp/pkg-{{ item.key }}
+    cp {{ git_repo_dest }}/beats/{{ item.key }}/{{ item.key }} /tmp/pkg-{{ item.key }}/
+    "
+  when: make_results|changed
+  with_dict: "{{ agents }}"
+
+
+- name: Copy Scripts
+  copy:
+    src: ./files/scripts/
+    dest: /tmp/pkg-{{ item.key }}/
+    mode: "ugo+x"
+  register: script_results
+  with_dict: "{{ agents }}"
+
+- name: Create init script
+  template:
+    src: ./templates/init.j2
+    dest: /tmp/pkg-{{ item.key }}/init
+    mode: "ugo+x"
+  register: init_temp_results
+  with_dict: "{{ agents }}"
+
+- name: "Copy over test config for filebeat"
+  copy:
+    src: ./files/testconf.yml
+    dest: "/tmp/pkg-{{ item.key }}/{{ item.key }}{{ item.value.ext }}"
+  when: item.key == "filebeat" and make_results|changed
+  with_dict: "{{ agents }}"
+
+- name: Test Filebeat agent for basic functionality
+  command: |
+    bash -c "
+    export AGENT_PATH=/tmp/pkg-{{ item.key }}
+    /tmp/pkg-{{ item.key }}/start
+    sleep 2
+    /tmp/pkg-{{ item.key }}/status
+    if [ $? -eq 0 ]; then
+      /tmp/pkg-{{ item.key }}/stop
+      if [ $(cat /tmp/filebeat/filebeat | wc -l) -ne 0 ]; then
+        exit 0
+      else
+        exit 1
+      fi
+    else
+      exit 2
+    fi"
+  when: item.key == "filebeat" and make_results|changed
+  changed_when: false
+  with_dict: "{{ agents }}"
+
+- name: Build base package
+  command: |
+    bash -c '
+      rm /tmp/pkg-{{ item.key }}/{{ item.key }}{{ item.value.ext }}
+      rm -r /tmp/pkg-{{ item.key }}/data/
+      rm -r /tmp/pkg-{{ item.key }}/logs/
+      tar -zcf /tmp/{{ item.key }}-{{ item.value.version }}.tar.gz -C /tmp/pkg-{{ item.key }}/ .'
+  when: make_results|changed or script_results|changed or init_temp_results|changed
+  environment:
+    GZIP: -n
+  with_dict: "{{ agents }}"
+
+- name: Push base package
+  fetch:
+    src: /tmp/{{ item.key }}-{{ item.value.version }}.tar.gz
+    dest: ~/fetched
+  with_dict: "{{ agents }}"

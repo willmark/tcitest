@@ -1,0 +1,11 @@
+---
+collectd_user: root
+collectd_group: root
+collectd_base_dir: /etc/collectd
+collectd_logfile: /opt/collectd/var/log/collectd.log
+collectd_syslog_file: /var/log/syslog
+collectd_interval: 150
+collectd_maxread_interval: 3600
+collectd_timeout: 3
+collectd_read_threads: 8
+collectd_write_threads: 8

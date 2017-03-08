@@ -1,0 +1,7 @@
+---
+- include_vars: vault.yml
+
+- name: Put the secret text in the tmp directory on the remote server.
+  copy:
+    content="{{vault_secret_text}}"
+    dest=/tmp/secret_text.txt

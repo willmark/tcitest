@@ -1,0 +1,2 @@
+#!/bin/sh
+$AGENT_PATH/init stop

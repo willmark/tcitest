@@ -1,0 +1,30 @@
+### File inputs
+filebeat.prospectors:
+{% for key, value in filebeat_prospector.iteritems() if key == host_type %}
+{% for item in value %}
+
+  - input_type: {{ item.input_type }}
+    path:
+{% for path_item in item.paths %}
+      - {{ path_item }}
+{% endfor %}
+    document_type: {{ item.doc_type }}
+{% if item.encoding is defined %}
+    encoding: {{ item.encoding }}
+{% endif %}
+{% if item.exclude_files is defined %}
+    exclude_files: {{ item.exclude_files}}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+{% if filebeat_output_kafka_enabled %}
+### Kafka output
+output.kafka:
+  hosts: [{% for item in groups['kafka'] %}"{{ item }}:{{ filebeat_kafka.port }}"{% if not loop.last %},{% endif %}{% endfor %}] 
+  
+  topic: '%{[type]}'
+
+  compression: {{ filebeat_kafka.compression }}
+
+{% endif %}

@@ -1,0 +1,8 @@
+---
+dependencies:
+  - role: apt-repos
+    repos:
+      - repo: 'deb {{ apt_repos.sensu.repo }} {{ apt_repos.sensu.distribution }} {{ apt_repos.sensu.components }}'
+        key_url: '{{ apt_repos.sensu.key_url }}'
+        validate_certs: false
+    when: monitoring.enabled|default(true)|bool

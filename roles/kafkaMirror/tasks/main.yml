@@ -1,0 +1,19 @@
+---
+- name: Create Kafka mirror consumer conf directory
+  file: path={{ kafka_conf_dir }} state=directory owner=root group=root mode=755
+
+- name: Install Kafka mirror init script
+  template: src=kafka-mirror.j2 dest=/etc/init.d/kafka-mirror mode=0755
+
+- name: Install Kafka mirror consumer conf
+  template: src=kafka-mirror-consumer.j2 dest="{{ kafka_conf_dir }}/mirror-consumer.properties" mode=0755
+  notify: Restart kafka mirror
+
+- name: Install Kafka mirror producer conf
+  template: src=kafka-mirror-producer.j2 dest="{{ kafka_conf_dir }}/mirror-producer.properties" mode=0755
+  notify: Restart kafka mirror
+
+- meta: flush_handlers
+
+- name: Make sure Kafka mirror is running
+  service: name=kafka-mirror enabled=yes state=started

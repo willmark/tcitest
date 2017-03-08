@@ -1,0 +1,65 @@
+---
+cleversafe:
+  dns:
+    - 8.8.8.8
+  ntpserver: servertime.service.softlayer.com
+  public_accessers: false
+
+pxe_update_files: false
+
+pxe:
+  static_leases: true
+  tftpboot_path: /srv/pxe/tftpboot
+  tftp_interface: "{{ private_device_interface }}"
+  pxe_interface: "{{ private_device_interface }}"
+  tftp_server: "{{ private_ipv4.address }}"
+  no_dhcp_interface: ~
+  data_port:
+    accesser: "p18p1, p18p3"
+    slicestor: "em1, em3"
+    dsnetmanager: "p18p1, p18p3"
+  nat:
+    enabled: false
+    interface_in: eth2
+    interface_out: eth0
+  dhcp_ranges:
+    - tag: default
+      range: 172.16.0.50,172.16.0.70,255.255.255.0,2h
+      gateway: 172.16.0.1
+      dns: 8.8.8.8
+    - tag: second
+      range: 172.16.5.50,172.16.5.70,255.255.255.0,2h
+      gateway: 172.16.5.1
+      dns: 8.8.8.8
+  # for serial_com: COM1=0, COM2=1, and COM3=2. Overrideable on each host.
+  serial_com: 1
+  ks_interface: auto
+  mirror_http_hostname: archive.ubuntu.com
+  mirror_http_directory: /ubuntu/
+  mirror_http_proxy: ''
+  ntp_server:
+  partman_disk: /dev/sda
+  packages:
+    - curl
+    - openssh-server
+    - build-essential
+    - sudo
+    - wget
+    - ifenslave
+    - vlan
+  timeout: 1000
+  ssh_pub_keys: []
+  os:
+    - name: precise
+      kernel: http://archive.ubuntu.com/ubuntu/dists/precise-updates/main/installer-amd64/current/images/netboot/ubuntu-installer/amd64/linux
+      bootloader: http://archive.ubuntu.com/ubuntu/dists/precise-updates/main/installer-amd64/current/images/netboot/ubuntu-installer/amd64/initrd.gz
+      root_password: password
+      kernel_image: linux-generic-lts-quantal
+      ntp_server:
+    - name: trusty
+      kernel: http://archive.ubuntu.com/ubuntu/dists/trusty-updates/main/installer-amd64/current/images/netboot/ubuntu-installer/amd64/linux
+      bootloader: http://archive.ubuntu.com/ubuntu/dists/trusty-updates/main/installer-amd64/current/images/netboot/ubuntu-installer/amd64/initrd.gz
+      root_password: password
+      kernel_image:
+      ntp_server:
+  servers: []

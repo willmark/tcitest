@@ -1,0 +1,7 @@
+---
+dependencies:
+ - role: default-debian
+ - role: git
+ - role: go
+ - role: collectd
+ - role: filebeat

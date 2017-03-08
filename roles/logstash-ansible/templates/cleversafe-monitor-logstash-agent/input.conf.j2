@@ -1,0 +1,13 @@
+input {
+  kafka {
+    bootstrap_servers => "{{ zk_nodes }}"
+    topics_pattern => "{{ datacenter }}-ca_logstash-agent_heartbeat|{{ datacenter }}-cs_logstash-agent_heartbeat"
+    auto_offset_reset => "smallest"
+    add_field => {
+      log_instance => "{{ lr_name }}"
+      log_host => "{{ ansible_hostname }}"
+      log_dc => "{{ datacenter }}"
+    }
+  }
+}
+

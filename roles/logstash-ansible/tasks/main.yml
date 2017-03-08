@@ -1,0 +1,11 @@
+---
+
+- include: logstash-debian-wheezy.yml
+  when:
+      - ansible_os_family == 'Debian'
+      - ansible_distribution_release == 'wheezy'
+
+- include: logstash-debian-jessie.yml
+  when:
+      - ansible_os_family == 'Debian'
+      - ansible_distribution_release == 'jessie'

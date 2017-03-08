@@ -1,0 +1,4 @@
+zookeeper.connect={% for server in groups[kafkaInSL_group_name] %}{{ hostvars[server]['ansible_'~hostvars[server].ansible_interfaces[2]]['ipv4']['address'] }}:{{ zookeeper_client_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+group.id = mirror-consumer-group-{{ group_names[group_name_index] }}
+auto.offset.reset=smallest

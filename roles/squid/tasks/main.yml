@@ -1,0 +1,82 @@
+---
+- name: install squid package
+  apt: pkg=squid
+
+- name: squid configuration
+  template: src=etc/squid3/squid.conf
+            dest=/etc/squid3/squid.conf
+  notify:
+    - reload squid
+
+- name: create squid cache dir
+  file: dest={{ squid.cache_dir.path }}
+        state=directory recurse=true
+        owner=proxy group=proxy mode=0755
+
+- name: check if squid dirs exist
+  stat: path="{{ squid.cache_dir.path }}/00"
+  register: squidcache
+
+- name: stop squid to build cache dirs
+  service: name=squid3 state=stopped
+  when: squidcache.stat.isdir is not defined
+
+- name: build squid cache dirs
+  command: /usr/sbin/squid3 -z
+  when: squidcache.stat.isdir is not defined
+
+- name: wait a few seconds for squid to be ready to start
+  pause: seconds=5
+  when: squidcache.stat.isdir is not defined
+
+- name: start squid after building cache dirs
+  service: name=squid3 state=started enabled=yes
+  when: squidcache.stat.isdir is not defined
+
+- name: squid allowed networks acl
+  template: src=etc/squid3/allowed-networks-src.acl
+            dest=/etc/squid3/allowed-networks-src.acl
+  notify:
+    - reload squid
+
+- name: squid allowed domains acl
+  template: src=etc/squid3/allowed-domains-dst.acl
+            dest=/etc/squid3/allowed-domains-dst.acl
+  notify:
+    - reload squid
+
+- name: remove antiquated mirror domain acl
+  file: path=/etc/squid3/mirror-dstdomain.acl
+        state=absent
+
+- name: squid blacklist package acl
+  template: src=etc/squid3/pkg-blacklist-regexp.acl
+            dest=/etc/squid3/pkg-blacklist-regexp.acl
+  notify:
+    - reload squid
+
+- meta: flush_handlers
+
+- name: ensure squid is running
+  service: name=squid3 state=started enabled=yes
+
+- name: allow squid traffic
+  ufw: rule=allow
+       to_port={{ item.port }}
+       src={{ item.src }}
+       proto={{ item.protocol }}
+  with_items: "{{ squid.firewall }}"
+  tags:
+    - firewall
+
+- include: checks.yml
+  when: sensu.client.enable_checks|default('True')|bool
+  tags: sensu-checks
+
+- include: metrics.yml
+  when: sensu.client.enable_metrics|default('True')|bool
+  tags: sensu-metrics
+
+- include: serverspec.yml
+  when: serverspec.enabled|default("True")|bool
+  tags: serverspec

@@ -1,0 +1,38 @@
+---
+# tasks file for mediapeers.filebeat
+- name: Add elastic apt repo key (for all elastic software)
+  apt_key:
+    url: "https://artifacts.elastic.co/GPG-KEY-elasticsearch"
+    state: present
+  register: result
+  until: result|succeeded
+  retries: 3
+
+
+# Install filebeat as a logstash client (to deliver logs), just for demoing
+
+- name: Add filebeat apt repo
+  apt_repository:
+    repo: "deb https://artifacts.elastic.co/packages/5.x/apt stable main"
+    state: present
+  retries: 3
+
+- name: Install filebeat apt package
+  apt:
+    name: "filebeat={{ filebeat_version }}"
+    force: "yes"
+    state: present
+
+- name: Creates filebeat conf directory
+  file: path=/etc/filebeat/conf.d state=directory
+
+- name: Configure filebeat
+  template:
+    src: "{{ filebeat_conf_template }}.j2"
+    dest: /etc/filebeat/filebeat.yml
+  notify: restart filebeat
+
+- name: Enable filebeat on bootup and ensure it's started
+  service:
+    name: filebeat
+    enabled: true

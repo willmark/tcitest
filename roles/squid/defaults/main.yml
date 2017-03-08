@@ -1,0 +1,19 @@
+---
+squid:
+  port: 3128
+  allowed_networks:
+    - 10.0.0.0/8
+  proxy_domains: []
+  blacklist_packages: []
+  default_deny: true
+  cache_dir:
+    path: /var/cache/squid3
+    size: 40000
+  upstream_proxy: []
+  # - host: proxy.openstack.bbg
+  #   port: 3128
+  #   type: parent or sibling
+  firewall:
+    - port: 3128
+      protocol: tcp
+      src: 10.0.0.0/8

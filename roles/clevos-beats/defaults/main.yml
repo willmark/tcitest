@@ -1,0 +1,44 @@
+---
+filebeat_prospector:
+  slicestor:
+    - input_type: log
+      paths:
+        - "/var/log/*.log"
+        - "/var/log/dsnet-core/*.log"
+      doc_type: syslog
+      exclude_files: "['.gz$']"
+  accesser:
+    - input_type: log
+      paths:
+        - "/var/log/messages.log"
+      doc_type: ca_messages
+      exclude_files: "['.gz$']"
+
+    - input_type: log
+      paths:
+        - "/var/log/dsnet-core/access.log"
+      doc_type: ca_access
+      exclude_files: "['.gz$']"
+
+    - input_type: log
+      paths:
+        - "/var/log/dsnet-core/report.log"
+      doc_type: ca_report
+      exclude_files: "['.gz$']"
+
+    - input_type: log
+      paths:
+        - "/var/log/dsnet-core/gc.log*"
+      doc_type: ca_gc
+      exclude_files: "['.gz$']"
+
+filebeat_kafka:
+  # initial brokers for reading cluster metadata
+  # hosts: ["kafka1:9092", "kafka2:9092", "kafka3:9092"]
+  port: 9200
+
+  # message topic selection + partitioning
+  topic: '%{[type]}'
+  compression: gzip
+
+filebeat_output_kafka_enabled: "True"

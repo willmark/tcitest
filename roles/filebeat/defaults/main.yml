@@ -1,0 +1,50 @@
+---
+# defaults file for mediapeers.filebeat
+filebeat_version: '5.2.0'
+filebeat_conf_template: "filebeat.yml"
+filebeat_use_kafka_in_sl: true
+
+
+# Example, overwrite this variable:
+filebeat_prospectors:
+  -
+    paths:
+      - '/var/log/syslog'
+      - '/var/log/auth.log'
+      - '/var/log/messages'
+    input_type: log
+    fields:
+      source: filebeat
+      format: syslog
+    document_type: syslog
+  -
+    paths:
+      - '/opt/my_app1/log/production.log'
+      - '/opt/my_app2/log/production.log'
+    input_type: log
+    fields:
+      source: filebeat
+      format: my_app
+    document_type: my_app_log
+
+# Make sure the fields paths, input_type is defined for each prospector. Other things are optional.
+# The field document_type default to 'log'.
+# Set a custom one here if you want to apply differen message filters for different
+# log formats in logstash later/
+# The field `fields` just adds more metatdata to the message.
+
+filebeat_kafka:
+  # initial brokers for reading cluster metadata
+  # hosts: ["kafka1:9092", "kafka2:9092", "kafka3:9092"]
+
+  # message topic selection + partitioning
+  topic: '%{[type]}'
+  use_type: true
+  compression: gzip
+
+filebeat_output_kafka_enabled: "True"
+
+# Extra prospectors - will be added to filebeat_prospectors list at runtime.
+# Facilitates having a base set of prospectors plus extra prospectors per host
+# or group.
+filebeat_extra_prospectors: []

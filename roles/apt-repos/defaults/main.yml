@@ -1,0 +1,9 @@
+---
+repos: []
+apt_repos:
+  # All key_urls should be HTTPS to ensure we are retrieving the key we are expecting too
+  sensu:
+    repo: 'http://repos.sensuapp.org/apt'
+    key_url: 'https://repos.sensuapp.org/apt/pubkey.gpg'
+    distribution: 'sensu'
+    components: 'main'

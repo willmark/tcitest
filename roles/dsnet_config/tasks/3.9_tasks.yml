@@ -1,0 +1,267 @@
+---
+### START SANITY CHECKS
+- name: verify dsnet.url is reachable and username/password authenticate
+  uri:
+    url: "{{ dsnet.url }}/listOrganizations.adm"
+    method: GET
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: url_test
+
+- name: verify each storage pool's width is equal to number of devices
+  fail: msg="Storage pool '{{ item.name }}' width is not equal to its number of devices"
+  when: item.width != item.devices|length
+  with_items: "{{ storage_pools }}"
+
+- name: verify service vault has a valid IDA
+  fail: msg="Service vault '{{ service_vault.name }}' has an invalid IDA.  The vault's IDA must meet the following conditions (1) Write Threshold <= Vault Width and (2) Write Threshold + IDA Threshold > Vault Width and (3) Write Threshold > IDA Threshold"
+  when: >
+    (service_vault.vault_width is defined and service_vault.write_threshold is defined and service_vault.threshold)
+    and
+    (service_vault.vault_width < service_vault.write_threshold or
+    service_vault.write_threshold + service_vault.threshold <= service_vault.vault_width or
+    service_vault.write_threshold <= service_vault.threshold)
+
+- name: verify each container vault has a valid IDA
+  fail: msg="Container vault '{{ item.name }}' has an invalid IDA.  The vault's IDA must meet the following conditions (1) Write Threshold <= Vault Width and (2) Write Threshold + IDA Threshold > Vault Width and (3) Write Threshold > IDA Threshold"
+  when: >
+    item.vault_width < item.write_threshold or
+    item.write_threshold + item.threshold <= item.vault_width or
+    item.write_threshold <= item.threshold
+  with_items: "{{ container_vaults }}"
+### END SANITY CHECKS
+
+### START DSNET MANAGER CONFIG TASKS
+- name: dsnet ntp config
+  cs_ntp_config:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    ntp_mode: "{{ ntp.mode }}"
+    ntp_servers: "{{ ntp.servers }}"
+  tags: cs-configure
+
+- name: dsnet access config
+  cs_access_config:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    access_key_authentication_enabled: "{{ dsnet.access_key_authentication_enabled }}"
+    password_authentication_enabled: "{{ dsnet.password_authentication_enabled }}"
+    device_level_api_enabled: "{{ dsnet.device_level_api.enabled }}"
+    device_level_api_types: "{{ dsnet.device_level_api.device_types }}"
+    tls_mode: "{{ dsnet.tls_mode }}"
+    ssh_keys: "{{ dsnet.device_user.ssh_keys | default([]) }}"
+  tags: cs-configure
+
+- name: dsnet logging config
+  cs_logging_config:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    logging_enabled: "{{ dsnet.logging.enabled }}"
+    logging_types: "{{ dsnet.logging.device_types }}"
+    syslog_enabled: "true"
+    syslog_hostname: "{{ dsnet.logging.ip_hostname_syslog }}"
+    logging_facility: "{{ dsnet.logging.facility }}"
+    syslog_http_access: "{{ dsnet.logging.add_http_access_log_syslog }}"
+    syslog_audits: "{{ dsnet.logging.add_audits_to_syslog }}"
+  tags: cs-configure
+### END DSNET MANAGER CONFIG TASKS
+
+### START SITE TASKS
+- name: create sites
+  cs_sites:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    name: "{{ item.name }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  with_items: "{{ sites }}"
+  tags: cs-sites
+### END SITE TASKS
+
+### START DEVICE TASKS
+- name: verify number of pending devices in system is equal to the number of devices that should be pending
+  uri:
+    url: "{{ dsnet.url }}/listDeviceRegistrations.adm"
+    method: GET
+    return_content: true
+    user: "{{ dsnet.username }}"
+    password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: pendingDevices
+  until: pendingDevices.json.responseData.deviceRegistrations|length == dsnet.pending_devices.count|int
+  retries: "{{ dsnet.pending_devices.retries | int }}"
+  delay: "{{ dsnet.pending_devices.delay | int }}"
+  tags: [cs-devices, pending]
+  ignore_errors: true
+
+- name: Devices to be registered
+  debug:
+    var: pendingDevices.json.responseData.deviceRegistrations
+
+- name: build devices list
+  set_fact:
+    deviceList: "{{ deviceList + [{ 'name': item.1, 'site_name': item.0.name }] }}"
+  with_subelements:
+    - "{{ sites }}"
+    - devices
+  tags: cs-devices
+
+- name: register devices
+  cs_devices:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    name: "{{ item.name }}"
+    old_password: "{{ dsnet.device_user.old_password }}"
+    password: "{{ dsnet.device_user.password }}"
+    site_name: "{{ item.site_name }}"
+  with_items: "{{ deviceList }}"
+  tags: cs-devices
+### END DEVICE TASKS
+
+- name: pause so Cleversafe system can update registered devices
+  pause: minutes=3
+  when: pendingDevices.json.responseData.deviceRegistrations|length > 0
+
+### START STORAGE POOL TASKS
+- name: storage pool tasks
+  cs_storage_pools:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    name: "{{ item.name }}"
+    width: "{{ item.width }}"
+    packed_storage_enabled: "{{ item.packed_storage_enabled | default('true') }}"
+    device_names: "{{ item.devices }}"
+  with_items: "{{ storage_pools }}"
+  tags: cs-storage-pools
+### END STORAGE POOL TASKS
+
+### START SERVICE VAULT TASKS
+- name: create service vault
+  cs_vaults:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    name: "{{ service_vault.name }}"
+    vault_purpose: "service"
+    vault_width: "{{ service_vault.vault_width }}"
+    threshold: "{{ service_vault.threshold }}"
+    write_threshold: "{{ service_vault.write_threshold }}"
+    segment_size: "{{ service_vault.segment_size | default(vault_default.segment_size) }}"
+    segment_size_unit: "{{ service_vault.segment_size_unit | default(vault_default.segment_size_unit) }}"
+    privacy_enabled: "{{ service_vault.privacy_enabled | default(vault_default.privacy_enabled) }}"
+    storage_pool_name: "{{ service_vault.storage_pool }}"
+  tags: cs-vaults
+### END SERVICE VAULT TASKS
+
+### START CONTAINER MODE & VAULT MANAGEMENT TASKS
+- name: container mode and vault management
+  cs_vault_settings:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    container_mode: "true"
+    vault_management: "{{ dsnet.management_vault_configuration_type }}"
+  tags: [cs-configure, cs-vaults]
+### END CONTAINER MODE & VAULT MANAGEMENT TASKS
+
+### START CONTAINER VAULTS TASKS
+- name: create container vaults
+  cs_vaults:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    name: "{{ item.name }}"
+    vault_purpose: "container"
+    vault_width: "{{ item.vault_width }}"
+    threshold: "{{ item.threshold }}"
+    write_threshold: "{{ item.write_threshold }}"
+    segment_size: "{{ item.segment_size | default(vault_default.segment_size) }}"
+    segment_size_unit: "{{ item.segment_size_unit | default(vault_default.segment_size_unit) }}"
+    name_index_enabled: "{{ item.name_index_enabled | default(vault_default.name_index_enabled) }}"
+    privacy_enabled: "{{ item.privacy_enabled | default(vault_default.privacy_enabled) }}"
+    storage_pool_name: "{{ item.storage_pool }}"
+  with_items: "{{ container_vaults }}"
+  tags: cs-vaults
+### END CONTAINER VAULTS TASKS
+
+### START ACCESS POOL TASKS
+- name: deploy access pools
+  cs_access_pools:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    name: "{{ item.name }}"
+    virtual_host_suffix: "{{ item.virtual_host_suffix }}"
+    protocol_type: "{{ item.protocol_type | default('s3') }}"
+    default_provisioning_code_id: "{{ item.default_provisioning_code_id }}"
+    access_service_port_https: "443"
+    access_service_port_https_service: "8338"
+    access_device_names: "{{ item.devices }}"
+    container_vault_names: "{{ item.vaults }}"
+  with_items: "{{ access_pools }}"
+  tags: cs-access-pools
+### END ACCESS POOL TASKS
+
+### START USER ACCOUNT TASKS
+- name: user account tasks
+  cs_user_accounts:
+    dsnet_url: "{{ dsnet.url }}"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+    name: "{{ item.name }}"
+    email: "{{ item.email | default('') }}"
+    using_password: "{{ item.using_password | default(true) }}"
+    username: "{{ item.username | default('') }}"
+    password: "{{ item.password | default('') }}"
+    roles: "{{ item.roles | default(['none']) }}"
+  with_items: "{{ user_accounts }}"
+  tags: cs-user-accounts
+### END USER ACCOUNT TASKS
+
+- name: pause for 5 minutes so Cleversafe system can update before making storage accounts/access keys
+  pause: minutes=5
+
+### START STORAGE ACCOUNT/ACCESS KEY TASKS
+- name: create storage accounts
+  cs_storage_accounts:
+    storage_url: "{{ storage.url }}"
+    storage_username: "{{ storage.username }}"
+    storage_password: "{{ storage.password }}"
+    validate_certs: "{{ storage.validate_certs }}"
+    name: "{{ item }}"
+  with_items: "{{ storage.accounts }}"
+  tags: cs-storage-accounts
+
+- name: create storage access keys
+  cs_storage_keys:
+    storage_url: "{{ storage.url }}"
+    storage_username: "{{ storage.username }}"
+    storage_password: "{{ storage.password }}"
+    validate_certs: "{{ storage.validate_certs }}"
+    name: "{{ item.account }}"
+    keys_to_append: "{{ storageAccessKeys | default({}) }}"
+  with_items: "{{ storage.access_keys }}"
+  tags: cs-storage-keys
+
+- name: save storage access keys
+  template: src="{{ item.template_location }}" dest="{{ item.save_location }}" owner="{{ item.owner | default("root") }}" mode="{{ item.mode | default("0640") }}"
+  with_items: "{{ storage.access_keys }}"
+  when: item.save_location is defined and item.template_location is defined
+  tags: cs-storage-keys
+### END STORAGE ACCOUNT/ACCESS KEY TASKS

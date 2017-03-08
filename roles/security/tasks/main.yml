@@ -1,0 +1,8 @@
+---
+- name: always update these packages
+  apt: pkg={{ item }} update_cache=yes state=latest
+  with_items: "{{ security.always_update.apt }}"
+
+- name: Permit SSH
+  ufw: rule=allow to_port=22 proto=tcp
+  when: common.ssh.allow_from is not defined

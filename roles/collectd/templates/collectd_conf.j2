@@ -1,0 +1,101 @@
+# Config file for collectd(1).
+# Please read collectd.conf(5) for a list of options.
+# http://collectd.org/
+#
+# {{ ansible_managed }}
+
+##############################################################################
+# Global settings for the daemon.                                            #
+##############################################################################
+# Hostname "{{ ansible_hostname }}" --> gives complete hostname with FQDN
+FQDNLookup  false
+
+Interval     {{ collectd_interval }}
+
+AutoLoadPlugin false
+
+CollectInternalStats true
+
+Timeout      {{ collectd_timeout }}
+ReadThreads  {{ collectd_read_threads }}
+WriteThreads  {{ collectd_write_threads }}
+
+##############################################################################
+# Logging                                                                    #
+##############################################################################
+
+
+LoadPlugin syslog
+LoadPlugin logfile
+
+<Plugin logfile>
+  LogLevel info
+  File STDOUT 
+  Timestamp true
+  PrintSeverity false
+</Plugin>
+
+<Plugin syslog>
+  LogLevel info
+</Plugin>
+
+LoadPlugin cpu
+LoadPlugin df
+LoadPlugin disk
+LoadPlugin entropy
+LoadPlugin interface
+LoadPlugin irq
+LoadPlugin load
+LoadPlugin memory
+LoadPlugin csv
+LoadPlugin processes
+
+LoadPlugin vmem
+<Plugin vmem>
+  Verbose false
+</Plugin>
+
+LoadPlugin statsd
+<Plugin statsd>
+  Host "localhost"
+  Port "8125"
+  DeleteSets true
+  TimerPercentile 90.0
+</Plugin>
+
+LoadPlugin tcpconns
+<Plugin "tcpconns">
+  ListeningPorts true
+</Plugin>
+
+<Plugin disk>
+  Disk "/^[hs]d[a-f][0-9]?$/"
+  IgnoreSelected false
+  UseBSDName false
+  UdevNameAttr "DEVNAME"
+</Plugin>
+
+<Plugin cpu>
+  ReportByCpu true
+  ReportByState true
+  ValuesPercentage false
+</Plugin>
+
+<Plugin load>
+  ReportRelative true
+</Plugin>
+
+<Plugin memory>
+  ValuesAbsolute true
+  ValuesPercentage false
+</Plugin>
+
+LoadPlugin md
+<Plugin md>
+  IgnoreSelected false
+</Plugin>
+
+<Plugin "csv">
+  DataDir "/var/lib/collectd/csv"
+  StoreRates true
+</Plugin>

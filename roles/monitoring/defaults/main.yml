@@ -1,0 +1,55 @@
+---
+monitoring:
+  enabled: true
+  keepalive:
+    handler: default
+  client_name: ~
+  client_ip: ~
+  manager_ip: ~
+  manager_user: admin
+  manager_pass: ~
+  ignore_certs: false
+  manager_cert: ~
+  accessor_cert: ~
+  client_cert: ~
+  client_key: ~
+  checks:
+    dsnet:
+      service_owner: cleversafe
+      handle: true
+      handlers: default
+    memory:
+      warning: 2048
+      critical: 512
+    cpu:
+      warning: 80
+      critical: 99
+    disk:
+      warning: 85
+      critical: 95
+  graphite:
+    host_prefix: "stats.cleversafe.{{ stack_env }}"
+    accessor_address: ~
+    timeout: 5
+    provisioning_code: monitoring_vault
+  rabbit:
+    host: ~
+    port: 5671
+    user: sensu
+    pass: ~
+    vhost: /sensu
+serverspec:
+  interval: 600
+  enabled: true
+  version: 2.29.1
+  version_locked_gems:
+    - name: net-ssh
+      version: 2.9.4
+    - name: specinfra
+      version: 2.50.4
+    - name: rspec-support
+      version: 3.4.1
+    - name: rspec-core
+      version: 3.4.2
+    - name: rspec
+      version: 3.4.0

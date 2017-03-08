@@ -1,0 +1,16 @@
+# example configuration scenarios.
+# Refer to /usr/share/doc/carbon-c-relay/README.md.gz for additional examples!
+
+## mirror all incoming metrics towards two destinations
+#cluster send-through
+#  forward
+#    host1:2003
+#    host2:2003
+#  ;
+#
+#match * send to send-through;
+
+## send all incoming metrics to the first responsive host
+#cluster send-to-any-one
+#  any_of host1:2003 host2:2003;
+#match * send to send-to-any-one;

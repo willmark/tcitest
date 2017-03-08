@@ -1,0 +1,39 @@
+---
+- name: Update Apt Cache
+  apt:
+    update_cache: true
+
+- name: Ensure Git Packages Are Installed
+  package:
+    name: "{{ item }}"
+    state: installed
+  with_items: "{{ git_pkgs }}"
+
+- name: Setup Local Git Repo
+  become_user: root
+  action: file path={{ git_repo_dest }}/.ssh state=directory
+    owner=0 group=0 mode=0755
+
+# yamllint disable rule:document-start
+- name: Include Key Variables
+  include_vars: "sshkey-{{ item.org }}-{{ item.repo }}.yml"
+  with_items: "{{ git_repo_list }}"
+# yamllint disable rule:document-start
+
+- name: Write Out SSH Key
+  copy:
+    content="{{ item.value }}"
+    dest="{{ git_repo_dest }}/.ssh/id_rsa.{{ item.key }}"
+    mode="u=r,go="
+  no_log: true
+  with_dict: "{{ git_deploy_keys }}"
+
+- name: Pull In Git Repos
+  git: repo={{ item.user|default("git") }}@{{ item.host|default("github.com") }}:{{ item.org }}/{{ item.repo }}.git
+    dest={{ git_repo_dest }}/{{ item.org }}-{{item.repo}}
+    accept_hostkey=yes
+    force=yes
+    recursive=no
+    key_file={{ git_repo_dest }}/.ssh/id_rsa.{{ item.org }}-{{ item.repo }}
+    version={{ item.version|default("HEAD") }}
+  with_items: "{{ git_repo_list }}"

@@ -1,0 +1,14 @@
+---
+- name: "Building LB configs"
+  template: src=provision_lbs.j2 dest=/gslb/files/{{ inventory_hostname }}.cfg
+  delegate_to: controller_node
+
+- name: "DNS entries template"
+  template: src=dns_entries.j2 dest=/gslb/files/dns_entries.txt
+  delegate_to: controller_node
+  run_once: true
+
+- name: "Certificate name template"
+  template: src=certificate-names.j2 dest=/gslb/files/certificate-names.txt
+  delegate_to: controller_node
+  run_once: true

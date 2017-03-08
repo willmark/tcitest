@@ -1,0 +1,3 @@
+---
+- name: Restart kafka mirror
+  service: name=kafka-mirror enabled=yes state=restarted

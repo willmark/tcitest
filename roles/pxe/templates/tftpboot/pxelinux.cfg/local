@@ -1,0 +1,7 @@
+#{{ ansible_managed }} 
+
+{% if cleversafe.enabled -%}
+default local
+LABEL local
+  LOCALBOOT 0
+{& endif -&}

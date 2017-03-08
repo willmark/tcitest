@@ -1,0 +1,45 @@
+---
+- name: add apt-key
+  apt_key:
+    url: https://packages.elastic.co/GPG-KEY-elasticsearch
+    state: present
+
+- name: Add kibana repository.
+  apt_repository:
+    repo: 'deb http://packages.elastic.co/kibana/4.5/debian stable main'
+    state: present
+    update_cache: true
+
+- name: install packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - kibana
+
+- name: install configuration
+  template:
+    src: kibana.yml.j2
+    dest: /opt/kibana/config/kibana.yml
+    owner: root
+    group: root
+    mode: 0644
+    backup: true
+  notify: restart kibana
+
+- name: install startup configuration
+  template:
+    src: kibana.j2
+    dest: /etc/default/kibana
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart kibana
+
+- meta: flush_handlers
+
+- name: start kibana
+  service:
+    name: kibana
+    state: started
+    enabled: true

@@ -1,0 +1,6 @@
+output {
+    kafka {
+        bootstrap_servers => "{{ bootstrap_servers }}"
+        topics => "{{ datacenter }}-GEO-elasticsearch"
+    }
+}

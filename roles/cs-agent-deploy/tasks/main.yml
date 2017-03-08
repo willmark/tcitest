@@ -1,0 +1,8 @@
+---
+- name: Include deploy external agent task
+  include: deploy_external_agent.yml
+  when: deploy_agent == true
+
+- name: Include delete external agent task
+  include: delete_external_agent.yml
+  when: delete_agent == true

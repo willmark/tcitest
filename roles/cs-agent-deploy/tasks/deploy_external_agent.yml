@@ -1,0 +1,11 @@
+---
+
+- name: Deploy external agent to cleversafe node
+  deploy_external_agent_cs:
+    host: "{{ dsnet_manager.ip_address }}"
+    build_file: "{{ dsnet_manager.build_file }}"
+    username: "{{ dsnet_manager.api_username }}"
+    password: "{{ dsnet_manager.api_password }}"
+    agent_name: "{{ dsnet_manager.agent_name }}"
+    agent_desc: "{{ dsnet_manager.agent_desc }}"
+  tags: deploy_external_agent_cs

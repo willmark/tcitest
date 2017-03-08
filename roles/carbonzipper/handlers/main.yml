@@ -1,0 +1,3 @@
+---
+- name: Restart carbonzipper
+  service: name=carbonzipper enabled=yes state=restarted

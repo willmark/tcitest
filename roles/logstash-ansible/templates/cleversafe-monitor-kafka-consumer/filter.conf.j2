@@ -1,0 +1,18 @@
+filter {
+  kv {
+    field_split => ","
+  }
+  ruby {
+    code => "
+      event.to_hash.delete_if{|k, v| k =~ /^kafka.common.NotCoordinatorForConsumerException._lag_count/}
+      event.to_hash.each_pair{|k,v|
+        if k.include? 'lag'
+          event[k] = v.to_i
+         end
+      }
+    "
+  }
+  mutate {
+     add_field => {"orig_timestamp" => "%{@timestamp}" }
+  }
+}

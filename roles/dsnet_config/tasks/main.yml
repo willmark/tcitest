@@ -1,0 +1,30 @@
+---
+- name: Install required httplib pakages
+  apt:
+    name: python-httplib2
+    state: present
+
+- name: Install required pip pakages
+  apt:
+    name: python-pip
+    state: present
+
+# Install requests python package.
+- pip:
+    name: requests
+
+- name: accept EULA acceptance agreement
+  cs_eula:
+    dsnet_url: "{{ dsnet.url }}/oneTimeAcceptEndUserLicenseAgreement.adm"
+    dsnet_username: "{{ dsnet.username }}"
+    dsnet_password: "{{ dsnet.password }}"
+    validate_certs: "{{ dsnet.validate_certs }}"
+  register: url_agreement
+
+- name: include Cleversafe OS 3.9 tasks if version is 3.9
+  include: 3.9_tasks.yml
+  when: dsnet.version == 3.9
+
+- name: include Cleversafe OS 3.8 tasks if version is 3.8
+  include: 3.8_tasks.yml
+  when: dsnet.version == 3.8

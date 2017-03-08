@@ -1,0 +1,21 @@
+filter {
+  grok {
+    match => { "message" => "%{TIMESTAMP_ISO8601:orig_timestamp}: .*" }
+  }
+  if [type] == "ca_gc" or [type] == "cs_gc" {
+    grok {
+      break_on_match => false
+      match => [ "message", "(?<gc_type>(\w{4}?\s?GC))\s" ]
+      match => [ "message", "real\=(?<gc_real_time>(\d+\D?\d+))\s" ]
+    }
+
+    mutate {
+      convert => { "gc_real_time" => "float" }
+    }
+
+    #GC logs generate a lot of lines we don't care about...
+    if "_grokparsefailure" in [tags] {
+      drop { }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# test file for nagios-server
+---
+- hosts: localhost
+  connection: local
+  become: true
+  roles:
+    - ../../
+  vars:
+    nagios_server_private_keys:
+      - src: id_rsa

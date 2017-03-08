@@ -1,0 +1,35 @@
+# {{ ansible_managed }}
+
+# PXE boot options
+{% if not cleversafe.enabled -%}
+serial {{ item.serial_com|default(pxe.serial_com) }} 115200 0
+{% endif -%}
+prompt 0
+{% if not cleversafe.enabled -%}
+default vesamenu.c32
+menu boot options for {{ item.name }}
+{% endif -%}
+{% if cleversafe.enabled -%}
+default {{ item.os }}_{{ item.name }}
+{% endif -%}
+timeout {{ item.timeout|default(pxe.timeout) }}
+
+label {{ item.os }}_{{ item.name }}
+menu label install {{ item.os }} on {{ item.name }}
+# Launch local installation
+{% if not cleversafe.enabled -%}
+  kernel {{ item.os }}/linux
+  ipappend 2
+  append initrd={{ item.os }}/initrd.gz vga=normal ramdisk_size=16384 root=/dev/ram rw preseed/url=tftp://{{pxe.tftp_server}}/servers/{{ item.mac | replace(":","-") | lower }}.cfg debian-installer/locale=en_US keyboard-configuration/layoutcode=us localechooser/translation/warn-light=true localechooser/translation/warn-severe=true netcfg/choose_interface={{ item.ks_interface|default(pxe.ks_interface) }} biosdevname=0 netcfg/get_hostname={{ item.name }} -- {% if item.serial_com is defined or pxe.serial_com is defined %}console=tty0 serial console=ttyS{{ item.serial_com|default(pxe.serial_com) }},115200n8 {% endif %} consoleblank=0 --
+{% endif -%}
+{% if cleversafe.enabled -%}
+kernel {{ item.os }}/vmlinuz
+  ipappend 2
+  append initrd={{ item.os }}/initrd.img fetch=http://{{ pxe.tftp_server }}:8080/{{ item.os }}/filesystem.squashfs clevos.installer.answers=http://{{ pxe.tftp_server }}:8080/{{ item.os }}/{{ item.name }}/answers.cfg clevos.runinstall console=tty0 serial boot=live union=aufs live-getty dhcp ethdevice=eth0 ethdevice-timeout=120 live-netdev=eth0 noprompt config
+{% endif -%}
+
+{% if not cleversafe.enabled -%}
+label local
+menu label Boot existing OS on {{ item.name }}
+localboot 0
+{% endif -%}

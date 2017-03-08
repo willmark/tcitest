@@ -1,0 +1,31 @@
+filter {
+  if [type] == "cs_intent_cleanup" {
+    mutate {
+      gsub => [
+        "message", "\"","",
+        "message", "\{", "",
+        "message", "\}", ""
+      ]
+    }
+    kv {
+      field_split => ","
+      value_split => ":"
+    }
+    mutate {
+      update => {
+        "_type" => "cs_intent_cleanup"
+        "type" => "cs_intent_cleanup"
+      }
+      rename => { "entry_type" => "intent_entry_type" }
+      rename => { "event_identifier" => "intent_event_identifier" }
+      rename => { "outcome" => "intent_outcome" }
+      rename => { "status" => "intent_status" }
+      rename => { "error_type" => "intent_error_type" }
+      rename => { "error_message" => "intent_error_message" }
+    }
+  }
+  date {
+	  match => [ "time_finish", "dd/MMM/yyyy:HH:mm:ss Z" ]
+	  target => "orig_timestamp"
+	}
+}

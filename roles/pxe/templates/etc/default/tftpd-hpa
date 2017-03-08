@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+
+# /etc/default/tftpd-hpa
+
+TFTP_USERNAME="tftp"
+TFTP_DIRECTORY="{{ pxe.tftpboot_path }}"
+TFTP_ADDRESS="{{ pxe.tftp_server }}:69"

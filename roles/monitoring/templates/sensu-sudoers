@@ -1,0 +1,2 @@
+Defaults:sensu env_keep += "OS_AUTH_URL OS_USERNAME OS_PASSWORD OS_TENANT_NAME OS_NO_CACHE OS_CACERT"
+sensu ALL= NOPASSWD: /etc/sensu/plugins/check-serverspec.rb

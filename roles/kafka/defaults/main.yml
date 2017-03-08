@@ -1,0 +1,34 @@
+---
+
+kafka_version: 0.9.0.1
+apache_mirror: apache.mirror.anlx.net
+kafka_conf_dir: /opt/kafka/config
+# cluster_interface: 'eth0'
+data_disks_devices: []
+# data_disks_devices: ['xvde']
+data_disks_filesystem: xfs
+# set to true to show host variables
+debug: false
+kafka_user: kafka
+kafka_group: kafka
+kafka_auto_leader_rebalance_enable: true
+kafka_min_insync_replicas: 2
+kafka_port: 9092
+kafka_num_network_threads: 3
+kafka_num_io_threads: 16
+kafka_socket_send_buffer_bytes: 102400
+kafka_socket_receive_buffer_bytes: 102400
+kafka_socket_request_max_bytes: 1163415000
+kafka_default_replication_factor: 3
+kafka_log_dir: /data/kafka-logs
+kafka_default_number_partitions: 120
+kafka_log_flush_interval_messages: 10000
+kafka_log_flush_interval_ms: 1000
+kafka_default_log_retention_hours: 1440
+kafka_log_retention_bytes: 175000000000
+kafka_log_segment_bytes: 1073741824
+kafka_log_cleanup_interval_mins: 1
+kafka_log_retention_check_interval_ms: 300000
+kafka_offsets_retention_minutes: 10080
+zookeeper_client_port: 2181
+zookeeper_connection_timeout_ms: 6000

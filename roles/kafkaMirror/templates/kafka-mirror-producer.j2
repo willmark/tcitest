@@ -1,0 +1,3 @@
+bootstrap.servers={% for server in groups[group_names[group_name_index]] %}{{ hostvars[server]['ansible_'~hostvars[server].ansible_interfaces[2]]['ipv4']['address'] }}:{{ kafka_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
+acks=1

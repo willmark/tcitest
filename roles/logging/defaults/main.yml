@@ -1,0 +1,42 @@
+---
+logging:
+  version: 0.4.0
+  install_method: apt
+  service:
+    user: logstash
+    group: adm
+    home: /var/lib/logstash
+  follow:
+    enabled: true
+    global_fields:
+      customer_id: "unknown"
+      cluster_name: "unknown"
+    logs: []
+  forward:
+    path: null
+    host: null
+    port: 4560
+    tls:
+      enabled: true
+      ca_cert: |
+        -----BEGIN CERTIFICATE-----
+        MIIDbjCCAlagAwIBAgIJAM0BGcYd3vMHMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
+        BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
+        aWRnaXRzIFB0eSBMdGQwHhcNMTUwMTE0MTk0NzMxWhcNMTYwMTE0MTk0NzMxWjBF
+        MQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
+        ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+        CgKCAQEAxRMHhTXHqEnH9mPUtreyJARa7820HOBf9Fe5zZNnIYXIhx7GpaxZp1pV
+        vcg2fB9iSUw81Oz+/Y91cyUJID1TF0RNHap/n7bVEu0kMHBbozScQcsE4/zljgX5
+        gqSECXpCZ9KQAX3WNBbFGHV/QrJTZA1Teb/Ne77vwTcOVLa++1BRyKc88kLeWS11
+        n5IMqWAytLS+1TtvcI+9iMKTb4udKo8UE0ojOMz/xpHbeVBumWBB0Uh8tlv2Bv2r
+        Qeflib9Djdbj5mj5BPyO2cSUy9blg51vK3wg7XImVpqqTaa97w938I9XICNhvxxm
+        iS5u4juu5Xuy0Fy0WBWgnaKC7zAwQQIDAQABo2EwXzAPBgNVHREECDAGhwSsEAAN
+        MB0GA1UdDgQWBBRo6C9RWMTxDhYgBFR701yvGlnw7TAfBgNVHSMEGDAWgBRo6C9R
+        WMTxDhYgBFR701yvGlnw7TAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IB
+        AQAYiC7dnmG/HloCPvmnqJ8nuGvHjExF1yaSQbbeCdpS3RcfRi4FvhvQsiQoO4aL
+        EYVzTEfamy9xD6GDREcQ0ex6b91b2aS71b46S/snzoEwqyc51Fikf93qUGW8Y5hT
+        /TTsu35mRUkCsOW9JBTE8hHuxaqC4sXvEgVTSQxrfLu9vqQ34c+PWh6sS0nA7aYA
+        8GS4HLwpwQNfhO8feQgyLljFrYMSe0iHiLWg2y8FB2ZjWgC/ZX9lY5YiBIe5K9A2
+        ToXF6Rn3zaU1rZEQ0vZOK+MdAXNoG1L9jqSRgrSoD92VXKsU0WHorFCN5NLknRlh
+        S+3FRsZsB9xRpd7jnrShLnVh
+        -----END CERTIFICATE-----

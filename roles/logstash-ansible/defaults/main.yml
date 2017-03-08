@@ -1,0 +1,13 @@
+---
+logstash_inputs: ""
+logstash_filters: ""
+logstash_outputs: ""
+ls_input_template: "filebeat.input.conf"
+ls_filter_template: "cleversafe.filter.conf"
+ls_output_template: "output.conf"
+logstash_ver: '1:5.2.0-1'
+logstash_jre_package: 'openjdk-8-jre-headless'
+logstash_jre_version: '8u121-b13-1~bpo8+1'
+logstash_jre_release: 'jessie-backports'
+
+logstash_ufw_rules: []

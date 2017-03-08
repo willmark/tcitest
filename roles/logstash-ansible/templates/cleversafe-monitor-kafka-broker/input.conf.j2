@@ -1,0 +1,14 @@
+input {
+  exec {
+    command => "bash <%= @exec_command %>"
+    interval => 60
+    type => "ca_monitor"
+    add_field => {
+      _type => "ca_monitor"
+      event_type => "kafka_broker_monitor"
+      log_instance => "{{ lr_name }}"
+      log_host => "{{ ansible_hostname }}"
+      log_dc => "{{ datacenter }}"
+    }
+  }
+}

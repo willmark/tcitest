@@ -1,0 +1,10 @@
+127.0.0.1 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1 localhost localhost.localdomain localhost6 localhost6.localdomain6
+{% for node in groups[group_names[group_name_index]] %}
+{{ hostvars[node]['ansible_'~hostvars[node].ansible_interfaces[2]]['ipv4']['address'] }} {{ hostvars[node]['ansible_nodename'] }} {{ hostvars[node]['ansible_hostname'] }}
+{% endfor %}
+{% if kafkaInSL_group_name != group_names[group_name_index] %}
+   {% for node in groups[kafkaInSL_group_name] %}
+{{ hostvars[node]['ansible_'~hostvars[node].ansible_interfaces[2]]['ipv4']['address'] }} {{ hostvars[node]['ansible_nodename'] }} {{ hostvars[node]['ansible_hostname'] }}
+   {% endfor %}
+{% endif %}

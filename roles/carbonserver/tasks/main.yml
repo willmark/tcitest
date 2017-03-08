@@ -1,0 +1,24 @@
+---
+- name: Debian - Install apt-transport-https to support https APT downloads
+  apt: name={{item}} state=present
+  with_items:
+    - apt-transport-https
+    - chkconfig
+
+- name: Install CarbonServer
+  shell: |
+    export PATH=$PATH:/usr/local/go/bin
+    export GOPATH=$HOME/go
+    export PATH=$GOPATH/bin:$PATH
+    go get -v github.com/grobian/carbonserver
+    go build -v github.com/grobian/carbonserver
+    go test github.com/grobian/carbonserver
+#
+- name: Install the init script for carbonserver
+  template: src=carbonserver.j2 dest=/etc/init.d/carbonserver mode=0755
+  notify: Restart carbonserver
+
+- meta: flush_handlers
+
+- name: Make sure carbonserver is running
+  service: name=carbonserver enabled=yes state=started

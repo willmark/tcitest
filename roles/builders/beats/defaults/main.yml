@@ -1,0 +1,20 @@
+---
+git_repo_list:
+  -
+    org: Bret-Noble
+    repo: beats
+    host: github.ibm.com
+    version: "v{{ agents.filebeat.version }}"
+beats_build_pkgs:
+  - python
+  - python-pip
+  - build-essential
+  - curl
+  - ruby
+  - ruby-dev
+  - rubygems
+  - tar
+beats_build_gems:
+  - pleaserun
+go:
+  version: "1.7.4"

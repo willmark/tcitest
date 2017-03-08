@@ -1,0 +1,21 @@
+---
+- name: Install CarbonZipper
+  shell: |
+    export PATH=$PATH:/usr/local/go/bin
+    export GOPATH=$HOME/go
+    export PATH=$GOPATH/bin:$PATH
+    go get -v github.com/dgryski/carbonzipper
+    go build -v github.com/dgryski/carbonzipper
+
+- name: Install the config script for carbonzipper
+  copy: src=zipper_config.conf dest=/root/go/bin mode=0644
+  notify: Restart carbonzipper
+
+- name: Install the init script for carbonzipper
+  template: src=carbonzipper.j2 dest=/etc/init.d/carbonzipper mode=0755
+  notify: Restart carbonzipper
+
+- meta: flush_handlers
+
+- name: Make sure carbonzipper is running
+  service: name=carbonzipper enabled=yes state=started

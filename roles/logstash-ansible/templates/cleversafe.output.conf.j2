@@ -1,0 +1,7 @@
+output {
+    kafka {
+        bootstrap_servers => "{{ kafka_bootstrap_servers }}"
+        topic_id => "{{ groups.datacenter }}-GEO-elasticsearch"
+    }
+}
+

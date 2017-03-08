@@ -1,0 +1,219 @@
+{% if netscaler.mgmt_ip_pub is defined %}
+###### Start enable SSH access from bastions ######
+set ns ip {{ netscaler.mgmt_ip_pub }}  -vServer DISABLED -telnet DISABLED -ftp DISABLED -gui DISABLED -snmp DISABLED -ssh ENABLED -mgmtAccess ENABLED
+
+set l3param -implicitACLAllow DIS
+add ns acl PERMIT_ICMP_PUB_SNIP ALLOW -destIP = {{ netscaler.mgmt_ip_pub }} -protocol ICMP -priority 50
+add ns acl BASTION_DS0223_SSH ALLOW -srcIP = 173.247.96.133 -destIP = {{ netscaler.mgmt_ip_pub }}  -destPort = 22 -protocol TCP -priority 100
+add ns acl BASTION_DS0175_SSH ALLOW -srcIP = 173.247.98.14 -destIP = {{ netscaler.mgmt_ip_pub }}  -destPort = 22 -protocol TCP -priority 150
+add ns acl BASTION_WDC04_SSH ALLOW -srcIP = 169.47.3.27 -destIP = {{ netscaler.mgmt_ip_pub }} -destPort = 22 -protocol TCP -priority 300
+add ns acl DEFAULT_DENY_PUB_SNIP DENY -destIP = {{ netscaler.mgmt_ip_pub }} -priority 1000
+apply ns acls
+###### End enable SSH access from bastions ######
+{% endif %}
+
+# Enabling needed features
+enable ns feature CS WL LB SSL REWRITE GSLB
+enable ns mode FR L3 CKA Edge USNIP PMTUD
+
+# Enable Mac Based Forwarding (MBF)
+enable ns mode MBF
+
+{% if netscaler.custom_snips is defined %}
+# Custom SNIPs
+{% for snip in netscaler.custom_snips %}
+add ns ip {{ snip.ip }} {{ snip.mask }}
+{% endfor %}
+{% endif %}
+
+# custom tcp profiles for performance improvements
+add ns tcpProfile tcp_fast -WS ENABLED -SACK ENABLED -WSVal 6 -ackOnPush DISABLED -mss 1460 -maxBurst 15 -initialCwnd 10 -oooQSize 4096 -pktPerRetx 3 -minRTO 300 -slowStartIncr 10 -bufferSize 16777216 -flavor CUBIC -dynamicReceiveBuffering DISABLED -sendBuffsize 16777216 -rstMaxAck ENABLED -spoofSynDrop DISABLED -dsack DISABLED
+add ns tcpProfile tcp_local -WS ENABLED -SACK ENABLED -WSVal 6 -mss 1460 -maxBurst 15 -initialCwnd 10 -oooQSize 4096 -pktPerRetx 2 -minRTO 300 -slowStartIncr 10 -bufferSize 16777216 -flavor CUBIC -sendBuffsize 16777216 -rstMaxAck ENABLED -spoofSynDrop DISABLED -dsack DISABLED
+
+{% if netscaler.adns_ip is defined %}
+# set up ADNS IP (used with NS delegation)
+add service ADNS_SVC {{ netscaler.adns_ip }} ADNS 53 -gslb NONE -maxClient 0 -maxReq 0 -cip DISABLED -usip NO -useproxyport NO -sp OFF -cltTimeout 120 -svrTimeout 120 -CKA YES -TCPB NO -CMP NO
+{% endif %}
+
+# add SSL certificate, ica cert and link them in a certificate chain
+add ssl certKey ICOS_CERT -cert icos.cert -key icos.key -passcrypt "LIiuEvB/RW7BhFZqt/a0CPdxNgoOF8f5"
+add ssl certKey GEOTRUST_ICA -cert geotrust-ica.cert
+link ssl certKey ICOS_CERT GEOTRUST_ICA
+
+# Add CS vserver / VIP for the endpoints
+add cs vserver CS_{{ lb_inputs.base_name }} SSL {{ netscaler.vip_ip }} 443 -stateupdate ENABLED -cltTimeout 3600 -tcpProfileName tcp_fast
+
+# bind ssl cert
+bind ssl vserver CS_{{ lb_inputs.base_name }} -certkeyName ICOS_CERT
+set ssl vserver CS_{{ lb_inputs.base_name }} -ssl3 DISABLED -tls1 DISABLED -tls11 ENABLED -tls12 ENABLED
+
+# rewrite policies
+{% if lb_inputs.endpoint_prefixes.local is defined %}
+{% set prefixes = lb_inputs.endpoint_prefixes.global + lb_inputs.endpoint_prefixes.local %}
+{% else %}
+{% set prefixes = lb_inputs.endpoint_prefixes.global %}
+{% endif %}
+add rewrite action RW_DELETE-BUCKET_ACT delete "HTTP.REQ.URL.BEFORE_REGEX(re#({{ prefixes|join('|') }})\\.{{ lb_inputs.endpoint_suffix|replace(".","\\\\.")}}#)"
+add rewrite action RW_INSERT-PATH_ACT insert_before HTTP.REQ.URL.PATH "\"/\" + HTTP.REQ.HOSTNAME.BEFORE_REGEX(re#\\.({{ prefixes|join('|') }})\\.{{ lb_inputs.endpoint_suffix|replace(".","\\\\.")}}.*#)" -bypassSafetyCheck YES
+add rewrite policy RW_DUMMY_POL true NOREWRITE
+add rewrite policy RW_DELETE-BUCKET_POL true RW_DELETE-BUCKET_ACT
+add rewrite policy RW_INSERT-PATH_POL "HTTP.REQ.HOSTNAME.REGEX_MATCH(re#.*\\.({{ prefixes|join('|') }}).{{ lb_inputs.endpoint_suffix }}.*#)" RW_INSERT-PATH_ACT
+add rewrite policylabel RW_BUCKET-MANIPULATION http_req
+bind rewrite policylabel RW_BUCKET-MANIPULATION RW_DELETE-BUCKET_POL 100 NEXT
+bind rewrite policylabel RW_BUCKET-MANIPULATION RW_INSERT-PATH_POL 110
+
+# bind the above policies
+bind cs vserver CS_{{ lb_inputs.base_name }} -policyName RW_DUMMY_POL -priority 100 -gotoPriorityExpression NEXT -type REQUEST -invoke policylabel RW_BUCKET-MANIPULATION
+
+# custom monitor for accessers
+add lb monitor ACCESSOR-MGMT_MON HTTP -respCode 200 -httpRequest "GET /state" -destPort 8192
+
+# add servers
+{% for server, val in netscaler.servers.iteritems() %}
+add server {{ server }} {{ val.ip }}
+{% endfor %}
+
+# add service group (a container that will hold back end server/accesser IPs and applies settings to all of them)
+add serviceGroup {{ lb_inputs.base_name}}_SVCGRP SSL -maxClient 0 -maxReq 0 -cip ENABLED X-Forwarded-For -usip NO -useproxyport YES -cltTimeout 180 -svrTimeout 3600 -CKA YES -TCPB NO -CMP NO -tcpProfileName tcp_local
+
+# attach servers
+{% for server in netscaler.servers %}
+bind serviceGroup {{ lb_inputs.base_name }}_SVCGRP {{ server }} 443
+{% endfor %}
+
+# bind monitors
+bind serviceGroup {{ lb_inputs.base_name }}_SVCGRP -monitorName tcp
+bind serviceGroup {{ lb_inputs.base_name }}_SVCGRP -monitorName ACCESSOR-MGMT_MON
+
+# default LBV for all traffic, bind service group
+add lb vserver LB_DEFAULT HTTP 0.0.0.0 0
+bind lb vserver LB_DEFAULT {{ lb_inputs.base_name }}_SVCGRP
+
+# default CS policy
+add cs policy DEFAULT_POL -rule true
+bind cs vserver CS_{{ lb_inputs.base_name }} -policyName DEFAULT_POL -targetLBVserver LB_DEFAULT -priority 99999
+
+add ssl cipher CLEVERSAFE-CIPHER
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1.2-ECDHE-RSA-AES256-GCM-SHA384
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1.2-ECDHE-RSA-AES128-GCM-SHA256
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1.2-ECDHE-RSA-AES-256-SHA384
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1.2-ECDHE-RSA-AES-128-SHA256
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1-ECDHE-RSA-AES256-SHA
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1-ECDHE-RSA-AES128-SHA
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1.2-DHE-RSA-AES256-GCM-SHA384
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1.2-DHE-RSA-AES128-GCM-SHA256
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1-DHE-RSA-AES-256-CBC-SHA
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1-DHE-RSA-AES-128-CBC-SHA
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1-AES-256-CBC-SHA
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName TLS1-AES-128-CBC-SHA
+bind ssl cipher CLEVERSAFE-CIPHER -cipherName SSL3-DES-CBC3-SHA
+
+bind ssl vserver CS_{{ lb_inputs.base_name }} -cipherName CLEVERSAFE-CIPHER
+unbind ssl vserver CS_{{ lb_inputs.base_name }} -cipherName DEFAULT
+
+# Internal endpoints config - for select deployments only
+{% if netscaler.int_vip_ip is defined %}
+# trunking and new internal SNIP IP setup
+add ns ip {{ netscaler.int_snip_ip }} {{ netscaler.int_snip_netmask }} -vServer DISABLED -telnet DISABLED -ftp DISABLED -snmp DISABLED -ssh DISABLED -mgmtAccess DISABLED
+add vlan 1179
+add vlan 50
+bind vlan 1179 -ifnum LA/1
+bind vlan 50 -ifnum LA/1 -tagged
+bind vlan 50 -IPAddress {{ netscaler.int_snip_ip }} {{ netscaler.int_snip_netmask }}
+
+# Add CS vserver / VIP for the endpoints
+add cs vserver CS_{{ lb_inputs.base_name }}-INT SSL {{ netscaler.int_vip_ip }} 443 -stateupdate ENABLED -cltTimeout 3600 -tcpProfileName tcp_fast
+
+# add SSL certificate, ica cert and link them in a certificate chain
+add ssl certKey ICOS-INT_CERT -cert icos-int.cert -key icos-int.key -passcrypt "LIiuEvB/RW7BhFZqt/a0CPdxNgoOF8f5"
+link ssl certKey ICOS-INT_CERT GEOTRUST_ICA
+
+# bind ssl cert
+bind ssl vserver CS_{{ lb_inputs.base_name }}-INT -certkeyName ICOS-INT_CERT
+set ssl vserver CS_{{ lb_inputs.base_name }}-INT -ssl3 DISABLED -tls1 DISABLED -tls11 ENABLED -tls12 ENABLED
+
+# rewrite policies
+{% set prefixes = lb_inputs.endpoint_prefixes.global + lb_inputs.endpoint_prefixes.local %}
+add rewrite action RW_DELETE-BUCKET-INT_ACT delete "HTTP.REQ.URL.BEFORE_REGEX(re#({{ prefixes|join('|') }})\\.int\\.{{ lb_inputs.endpoint_suffix|replace(".","\\\\.")}}#)"
+add rewrite action RW_INSERT-PATH-INT_ACT insert_before HTTP.REQ.URL.PATH "\"/\" + HTTP.REQ.HOSTNAME.BEFORE_REGEX(re#\\.({{ prefixes|join('|') }})\\.int\\.{{ lb_inputs.endpoint_suffix|replace(".","\\\\.")}}.*#)" -bypassSafetyCheck YES
+add rewrite policy RW_DUMMY_POL-INT true NOREWRITE
+add rewrite policy RW_DELETE-BUCKET-INT_POL true RW_DELETE-BUCKET-INT_ACT
+add rewrite policy RW_INSERT-PATH-INT_POL "HTTP.REQ.HOSTNAME.REGEX_MATCH(re#.*\\.({{ prefixes|join('|') }}).int.{{ lb_inputs.endpoint_suffix }}.*#)" RW_INSERT-PATH_ACT
+add rewrite policylabel RW_BUCKET-MANIPULATION-INT http_req
+bind rewrite policylabel RW_BUCKET-MANIPULATION-INT RW_DELETE-BUCKET-INT_POL 100 NEXT
+bind rewrite policylabel RW_BUCKET-MANIPULATION-INT RW_INSERT-PATH-INT_POL 110
+
+# bind the above policies
+bind cs vserver CS_{{ lb_inputs.base_name }}-INT -policyName RW_DUMMY-INT_POL -priority 100 -gotoPriorityExpression NEXT -type REQUEST -invoke policylabel RW_BUCKET-MANIPULATION-INT
+
+# bind default CS policy
+bind cs vserver CS_{{ lb_inputs.base_name }}-INT -policyName DEFAULT_POL -targetLBVserver LB_DEFAULT -priority 99999
+
+# bind ciphers
+bind ssl vserver CS_{{ lb_inputs.base_name }}-INT -cipherName CLEVERSAFE-CIPHER
+unbind ssl vserver CS_{{ lb_inputs.base_name }}-INT -cipherName DEFAULT
+{% endif %}
+
+{% if netscaler.adns_ip is defined %}
+# GSLB config
+{% for host in groups['netscalers'] %}
+add gslb site {{ hostvars[host]['netscaler']['gslb_sitename'] }} {{ hostvars[host]['netscaler']['gslb_ip'] }} -publicIP {{ hostvars[host]['netscaler']['gslb_ip'] }}
+{% endfor %}
+add gslb site {{ netscaler.gslb_sitename }} {{ netscaler.gslb_ip }} -publicIP {{ netscaler.gslb_ip }}
+
+# Add geo proximity DB ONLY do this for cross regional environments, not mirrored
+add locationFile geo-merge.csv -format geoip-city-isp-org
+
+{% for service in lb_inputs.gslb_services %}
+add gslb service {{ service.name }} {{ service.ip }} {{ service.type }} {{ service.port }} -publicIP {{ service.ip }} -publicPort {{ service.port }} -maxClient 0 -siteName {{ service.sitename }} -cltTimeout 180 -svrTimeout 360 -downStateFlush ENABLED
+{% endfor %}
+
+{% for vserver in lb_inputs.gslb_vservers %}
+add gslb vserver {{ vserver.name }} {{ vserver.type}} -lbMethod {{ vserver.lbmethod }} -backupLBMethod ROUNDROBIN -tolerance 0 -appflowLog DISABLED
+{% for service in vserver.gslb_services %}
+bind gslb vserver {{ vserver.name }} -serviceName {{ service }}
+{% endfor %}
+{% if vserver.domainnames is defined %}
+{% for domain in vserver.domainnames %}
+bind gslb vserver {{ vserver.name }} -domainName {{ domain }} -TTL {{ vserver.ttl }}
+{% endfor %}
+{% endif %}
+{% if (vserver.mir is defined) and (vserver.mir|lower == 'enable') %}
+set gslb vserver {{ vserver.name }} -MIR ENA
+{% endif %}
+
+{% endfor %}
+
+{% for vserver in lb_inputs.gslb_vservers %}
+{% if vserver.backup is defined %}
+set gslb vserver {{ vserver.name }} -backupVServer  {{ vserver.backup }}
+{% endif %}
+{% endfor %}
+
+# add manual locations - only do this for cross regional environments, not mirrored
+{% if lb_inputs.gslb_locations is defined %}
+{% for location in lb_inputs.gslb_locations %}
+add location {{ location.start_ip }} {{ location.end_ip }} "{{ location.locality }}" -longitude {{ location.longitude }} -latitude {{ location.latitude }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+# API access vserver, only if explicitly requested - may just be for dedicated deploys
+add cs vserver CS_{{ lb_inputs.base_name }}_8338 SSL {{ netscaler.vip_ip }} 8338 -stateupdate ENABLED -cltTimeout 3600
+add lb vserver LB_DEFAULT_8338 HTTP 0.0.0.0 0
+
+add serviceGroup {{ lb_inputs.base_name }}_8338-SVCGRP SSL -maxClient 0 -maxReq 0 -cip ENABLED X-Forwarded-For -usip NO -useproxyport YES -cltTimeout 180 -svrTimeout 3600 -CKA YES -TCPB NO -CMP NO
+
+{% for server in netscaler.servers %}
+bind serviceGroup {{ lb_inputs.base_name }}_8338-SVCGRP {{ server }} 8338
+{% endfor %}
+
+bind lb vserver LB_DEFAULT_8338 {{ lb_inputs.base_name }}_8338-SVCGRP
+
+bind ssl vserver CS_{{ lb_inputs.base_name }}_8338 -cipherName CLEVERSAFE-CIPHER
+unbind ssl vserver CS_{{ lb_inputs.base_name }}_8338 -cipherName DEFAULT
+bind ssl vserver CS_{{ lb_inputs.base_name }}_8338 -certkeyName ICOS_CERT
+set ssl vserver CS_{{ lb_inputs.base_name }}_8338 -ssl3 DISABLED -tls1 DISABLED -tls11 ENABLED -tls12 ENABLED
+bind cs vserver CS_{{ lb_inputs.base_name }}_8338 -policyName RW_DUMMY_POL -priority 100 -gotoPriorityExpression NEXT -type REQUEST -invoke policylabel RW_BUCKET-MANIPULATION
+add cs policy DEFAULT_POL_8338 -rule true
+bind cs vserver CS_{{ lb_inputs.base_name }}_8338 -policyName DEFAULT_POL_8338 -targetLBVserver LB_DEFAULT_8338 -priority 99999

@@ -1,0 +1,11 @@
+---
+zookeeper_version: 3.4.9
+apache_mirror: apache.mirror.anlx.net
+zookeeper_client_port: 2181
+
+zookeeper_user: zookeeper
+zookeeper_group: zookeeper
+zookeeper_conf_dir: /data/zookeeper/conf
+zookeeper_log_dir: /data/zookeeper-logs
+zookeeper_data_dir: /data/zookeeper
+zookeeper_maxClientCnxns: 0

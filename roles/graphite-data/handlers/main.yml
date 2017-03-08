@@ -1,0 +1,7 @@
+---
+
+- name: Start carbon-c-relay
+  service: name=carbon-c-relay enabled=yes state=started
+
+- name: Restart carbon-c-relay
+  service: name=carbon-c-relay enabled=yes state=started

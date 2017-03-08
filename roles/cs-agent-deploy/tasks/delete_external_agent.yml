@@ -1,0 +1,9 @@
+---
+
+- name: Remove external agent from cleversafe node
+  remove_external_agent_cs:
+    host: "{{ dsnet_manager.ip_address }}"
+    username: "{{ dsnet_manager.api_username }}"
+    password: "{{ dsnet_manager.api_password }}"
+    agent_name: "{{ dsnet_manager.agent_name }}"
+  tags: remove_external_agent_cs
