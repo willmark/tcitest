@@ -6,4 +6,4 @@ services:
   - docker
 
 script:
-- ./test/idempotency_results
+- ./test/idempotency_test

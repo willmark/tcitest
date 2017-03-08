@@ -17,7 +17,7 @@
     - collectd
     - common
     - cs-agent-deploy
-    - default-debian
+#    - default-debian
     - dnsmasq
 #    - dsnet_config
     - elasticsearch
