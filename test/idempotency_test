@@ -6,7 +6,7 @@ docker build -t target test/target
 docker create --name target target
 docker start target
 
-docker run --name deployer -v $(pwd)/roles:/app/roles -v $(pwd)/idempotency_test.yml:/app/main.yml --link target deployer
+docker run --name deployer -v $(pwd)/roles:/app/roles -v $(pwd)/test/idempotency_test.yml:/app/main.yml --link target deployer
 docker start -a deployer
 
 docker cp deployer:/app/report .
