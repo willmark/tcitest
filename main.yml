@@ -4,7 +4,6 @@
   remote_user: root
   hosts: target
   roles:
-    - go
     - ansible-nagios-server
     - apt-repos
     - backup
@@ -36,7 +35,7 @@
     - kafkaMirror
     - kibana
     - logging
-    - logstash
+#    - logstash
     - logstash-ansible
     - logstash-filebeat
     - minio
