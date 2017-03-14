@@ -1,5 +1,6 @@
 #!/bin/bash
 
+echo "test env is >>$ENV_1<<"
 ssh-keygen -b 2048 -t rsa -f test/deployer/key -q -N ""
 mv test/deployer/key.pub test/target
 docker build -t deployer test/deployer
