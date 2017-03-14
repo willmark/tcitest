@@ -8,3 +8,4 @@
     - go
     - ansible-nagios-server
     - apt-repos
+    - kafka
