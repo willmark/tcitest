@@ -1,6 +1,5 @@
 #!/bin/bash
 
-echo "test env is >>$ENV_1<<"
 ssh-keygen -b 2048 -t rsa -f test/deployer/key -q -N ""
 mv test/deployer/key.pub test/target
 docker build -t deployer test/deployer
@@ -51,5 +50,10 @@ do
        cat report
        echo "Failed idempotency test.  Previous 'ok' count $prev does not match current ok count $ok"
        exit 1
+   else
+       echo "Idempotency test successful."
+       docker login -u $DOCKER_USER -p $DOCKER_PASS
+       docker commit target:$TARGET_VERSION
+       docker push deployblue/tcitest:$TARGET_VERSION
    fi
 done
