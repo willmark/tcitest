@@ -1,5 +1,7 @@
 #!/bin/bash
 
+ssh-keygen -b 2048 -t rsa -f test/deployer/key -q -N ""
+mv test/deployer/key.pub test/target
 docker build -t deployer test/deployer
 docker build -t target test/target
 

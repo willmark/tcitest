@@ -4,26 +4,26 @@
   remote_user: root
   hosts: target
   roles:
+    - git
+    - go
     - ansible-nagios-server
     - apt-repos
     - backup
 #    - base-monitoring
-    - bring_up
-    - builders
     - carbonapi
-    - carbonserver
+#    - bring_up
+    - builders
+#    - carbonserver
     - carbonzipper
-    - clevos-beats
+#    - cs-agent-deploy
+#    - clevos-beats
     - collectd
     - common
-    - cs-agent-deploy
 #    - default-debian
     - dnsmasq
 #    - dsnet_config
     - elasticsearch
     - filebeat
-    - git
-    - go
     - grafana
     - graphite
     - graphite-data
