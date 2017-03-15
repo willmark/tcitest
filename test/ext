@@ -8,7 +8,7 @@ docker build -t target test/extension
 docker start target
 
 docker pull deployblue/deployer
-docker run --name deployer -v $(pwd)/roles:/app -v $(pwd)/test/ext.yml:/app/main.yml --link target deployblue/deployer
+docker run --name deployer -v $(pwd)/test/deployer/key:/app/key -v $(pwd)/roles:/app -v $(pwd)/test/ext.yml:/app/main.yml --link target deployblue/deployer
 
 docker commit target deployblue/extension:$TARGET_VERSION
 docker push deployblue/extension:$TARGET_VERSION
