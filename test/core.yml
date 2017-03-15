@@ -1,0 +1,10 @@
+---
+
+- name: Core components
+  remote_user: root
+  hosts: target
+  roles:
+    - git
+    - go
+    - ansible-nagios-server
+    - apt-repos
