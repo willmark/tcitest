@@ -1,0 +1,16 @@
+#!/bin/bash
+
+ssh-keygen -b 2048 -t rsa -f test/deployer/key -q -N ""
+mv test/deployer/key.pub test/target
+
+docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" -e="$DOCKER_EMAIL"
+docker build -t ext test/extension
+docker build -t target test/target
+
+docker create --name target target
+docker start target
+
+docker run --name ext -v $(pwd)/roles:/app -v $(pwd)/test/ext.yml:/app/main.yml --link target ext 
+
+docker commit target deployblue/tcitestext:$TARGET_VERSION
+docker push deployblue/tcitestext:$TARGET_VERSION

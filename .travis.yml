@@ -6,4 +6,4 @@ services:
   - docker
 
 script:
-- ./test/core
+- ./test/ext

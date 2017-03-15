@@ -1,0 +1,2 @@
+[node]
+target ansible_ssh_private_key_file=key ansible_ssh_extra_args="-o StrictHostKeyChecking=no"
