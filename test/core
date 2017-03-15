@@ -11,7 +11,7 @@ docker create --name target target
 
 docker run --name deployer -v $(pwd)/roles:/app/roles -v $(pwd)/test/core.yml:/app/main.yml --link target deployblue/deployer
 
-docker push deployblue/deployer:$TARGET_VERSION
+docker push deployblue/deployer
 
 docker commit target deployblue/core:$TARGET_VERSION
 docker push deployblue/core:$TARGET_VERSION
