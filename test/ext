@@ -5,6 +5,7 @@ mv test/deployer/key.pub test/target
 
 docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" -e="$DOCKER_EMAIL"
 docker build -t target test/extension
+docker create -v test/target/key.pub:/root/.ssh/authorized_keys --name target target
 docker start target
 
 docker pull deployblue/deployer
