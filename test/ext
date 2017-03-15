@@ -5,6 +5,7 @@ mv test/deployer/key.pub test/target
 
 docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" -e="$DOCKER_EMAIL"
 docker build -t target test/extension
+docker start target
 
 docker pull deployblue/deployer
 docker run --name deployer -v $(pwd)/roles:/app -v $(pwd)/test/ext.yml:/app/main.yml --link target deployblue/deployer
