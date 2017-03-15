@@ -52,9 +52,9 @@ do
        cat report
        echo "Failed idempotency test.  Previous 'ok' count $prev does not match current ok count $ok"
        exit 1
-   else
-       echo "Idempotency test successful."
-       docker commit target deployblue/tcitest:$TARGET_VERSION
-       docker push deployblue/tcitest:$TARGET_VERSION
    fi
 done
+
+echo "Idempotency test successful."
+docker commit target deployblue/tcitest:$TARGET_VERSION
+docker push deployblue/tcitest:$TARGET_VERSION
