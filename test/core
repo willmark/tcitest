@@ -4,13 +4,14 @@ ssh-keygen -b 2048 -t rsa -f test/deployer/key -q -N ""
 mv test/deployer/key.pub test/target
 
 docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" -e="$DOCKER_EMAIL"
-docker build -t deployer test/deployer
+docker build -t deployblue/deployer test/deployer
 docker build -t target test/target
 
 docker create --name target target
-docker start target
 
-docker run --name deployer -v $(pwd)/roles:/app/roles -v $(pwd)/test/core.yml:/app/main.yml --link target deployer
+docker run --name deployer -v $(pwd)/roles:/app/roles -v $(pwd)/test/core.yml:/app/main.yml --link target deployblue/deployer
 
-docker commit target deployblue/tcitest:$TARGET_VERSION
-docker push deployblue/tcitest:$TARGET_VERSION
+docker push deployblue/deployer:$TARGET_VERSION
+
+docker commit target deployblue/core:$TARGET_VERSION
+docker push deployblue/core:$TARGET_VERSION
